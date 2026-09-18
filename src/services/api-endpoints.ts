@@ -11,6 +11,7 @@ export const API_ENDPOINTS = {
     categories: "/cafe/categories",
     products: "/cafe/products",
     menus: "/cafe/menus",
+    dashboard: "/cafe/dashboard",
   },
   menu: {
     public: "/public/menu",
