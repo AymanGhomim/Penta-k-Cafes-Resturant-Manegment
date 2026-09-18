@@ -24,6 +24,8 @@ export const platformAuthService = {
       email,
       password,
     });
-    return response.data.data;
+    const result = response.data.data;
+    if (typeof window !== "undefined") localStorage.setItem("accessToken", result.accessToken);
+    return result;
   },
 };
