@@ -25,6 +25,7 @@ import { convertInventoryQuantity } from "@/lib/inventory-units";
 import { validateCoupon, customerService } from "@/services/customer.service";
 import { financeService } from "@/services/finance.service";
 import { useAuthStore } from "@/store/auth.store";
+import { orderApiService } from "@/services/order-api.service";
 
 export type CheckoutInput = {
   items: CartItem[];
@@ -53,6 +54,10 @@ export type CheckoutTotals = {
   deliveryFee: number;
   total: number;
 };
+
+function apiItem(item: OrderItem) {
+  return { productId: item.productId, productName: item.productName, unitPrice: item.unitPrice, quantity: item.quantity, notes: item.notes };
+}
 
 function activeContext() {
   const tenantId = tenantService.requireActiveTenantId();
@@ -199,6 +204,15 @@ export const checkoutService = {
       active: true,
       createdAt: new Date().toISOString(),
     });
+  },
+  async checkoutRemote(input: CheckoutInput) {
+    const { tenantId, branchId } = activeContext();
+    if (input.expectedTenantId && input.expectedTenantId !== tenantId) throw new Error("سياق الكافيه غير صحيح.");
+    if (input.expectedBranchId && input.expectedBranchId !== branchId) throw new Error("سياق الفرع غير صحيح.");
+    const table = input.tableId ? cafeDataService.getTables().find((item) => item.id === input.tableId) : undefined;
+    const { items, totals } = this.calculate(input.items, input.couponCode, input.orderType === "DELIVERY" ? input.deliveryZoneId : undefined, input.customerId);
+    const order = await orderApiService.create({ branchId, orderType: input.orderType, source: input.source ?? "POS", tableNumber: table?.number, customerName: input.customerName, customerPhone: input.customerPhone, customerAddress: input.customerAddress, customerNotes: input.customerNotes, discount: totals.discount, tax: totals.tax, serviceCharge: totals.serviceCharge, deliveryFee: totals.deliveryFee, paymentMethod: input.paymentMethod, items: items.map(apiItem) });
+    return { order };
   },
   checkout(input: CheckoutInput) {
     const { tenantId, branchId } = activeContext();

@@ -8,7 +8,7 @@ import { useBranch } from "@/providers/branch-provider";
 import { useTenant } from "@/providers/tenant-provider";
 import { cafeDataService } from "@/services/cafe-data.service";
 import { cafeOperationsService } from "@/services/cafe-operations.service";
-import { checkoutService } from "@/services/checkout.service";
+import { checkoutService, type CheckoutInput } from "@/services/checkout.service";
 import { modifierService } from "@/services/modifier.service";
 import { useCartStore } from "@/store/cart.store";
 import { useOrdersStore } from "@/store/orders.store";
@@ -216,10 +216,10 @@ export function usePosPage() {
     setPaymentOpen(true);
   }
 
-  function checkout(payment: PaymentConfirmation) {
+  async function checkout(payment: PaymentConfirmation) {
     setSubmitting(true);
     try {
-      const { order } = checkoutService.checkout({
+      const checkoutInput: CheckoutInput = {
         items,
         orderType,
         tableId: tableId || undefined,
@@ -233,7 +233,13 @@ export function usePosPage() {
         paymentAllocations: payment.allocations,
         receivedAmount: payment.receivedAmount,
         source: manualOrder ? "MANUAL" : "POS",
-      });
+      };
+      let order;
+      try {
+        ({ order } = await checkoutService.checkoutRemote(checkoutInput));
+      } catch {
+        ({ order } = checkoutService.checkout(checkoutInput));
+      }
       clearCart();
       resetDraft();
       useOrdersStore.getState().loadForTenant(tenant.id);

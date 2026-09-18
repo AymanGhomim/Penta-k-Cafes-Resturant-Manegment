@@ -10,7 +10,7 @@ import {
 import type { Locale } from "@/lib/menu-translations";
 import { useCustomerRoute } from "@/providers/customer-route-provider";
 import { cafeOperationsService } from "@/services/cafe-operations.service";
-import { checkoutService } from "@/services/checkout.service";
+import { checkoutService, type CheckoutInput } from "@/services/checkout.service";
 import { useCartStore } from "@/store/cart.store";
 import { useSettingsStore } from "@/store/settings.store";
 import type { DeliveryZone } from "@/types/cafe-operations.types";
@@ -91,7 +91,7 @@ export function useCustomerCart() {
   const total = getTotalWithServiceTax(subtotal);
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
 
-  function submitOrder() {
+  async function submitOrder() {
     if (!customerContext)
       return toast.error("تعذر تحديد بيانات الكافيه والفرع.");
     if (!customerContext.table && !orderType)
@@ -108,7 +108,7 @@ export function useCustomerCart() {
       return toast.error("العنوان ومنطقة التوصيل مطلوبان.");
     setSubmitting(true);
     try {
-      const result = checkoutService.checkout({
+      const checkoutInput: CheckoutInput = {
         items,
         orderType: customerContext.table
           ? "TABLE"
@@ -129,7 +129,13 @@ export function useCustomerCart() {
         expectedTenantId: customerContext.tenant.id,
         expectedBranchId: customerContext.branch.id,
         deferPayment: true,
-      });
+      };
+      let result;
+      try {
+        result = await checkoutService.checkoutRemote(checkoutInput);
+      } catch {
+        result = checkoutService.checkout(checkoutInput);
+      }
       clearCart();
       router.push(customerRoute.href(`/order/${result.order.id}`));
     } catch (error) {
