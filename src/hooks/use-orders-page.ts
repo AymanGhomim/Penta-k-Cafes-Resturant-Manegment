@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { usePagination } from "@/hooks/use-pagination";
 import { orderService } from "@/services/order.service";
+import { orderApiService } from "@/services/order-api.service";
 import { reportService } from "@/services/report.service";
 import { useOrdersStore } from "@/store/orders.store";
 import type { Order, OrderStatus } from "@/types/order.types";
@@ -85,7 +86,7 @@ export function useOrdersPage() {
     ].join(":"),
   );
 
-  function advanceOrder(order: Order) {
+  async function advanceOrder(order: Order) {
     const sequence: OrderStatus[] = [
       "NEW",
       "ACCEPTED",
@@ -96,11 +97,10 @@ export function useOrdersPage() {
     const index = sequence.indexOf(order.status);
     if (index < 0 || index >= sequence.length - 1) return;
     try {
-      orderService.transition(order.id, sequence[index + 1]);
+      await orderApiService.updateStatus(order.id, sequence[index + 1]);
+      useOrdersStore.getState().loadForTenant();
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "تعذر تحديث الحالة.",
-      );
+      try { orderService.transition(order.id, sequence[index + 1]); } catch (fallbackError) { toast.error(fallbackError instanceof Error ? fallbackError.message : error instanceof Error ? error.message : "تعذر تحديث الحالة."); }
     }
   }
 
@@ -109,12 +109,17 @@ export function useOrdersPage() {
     setCancelReason("");
   }
 
-  function confirmCancellation() {
+  async function confirmCancellation() {
     if (!cancelTarget) return;
-    orderService.cancel(cancelTarget.id, cancelReason);
+    try {
+      await orderApiService.updateStatus(cancelTarget.id, "CANCELLED");
+    } catch {
+      orderService.cancel(cancelTarget.id, cancelReason);
+    }
     setCancelTarget(null);
     setCancelReason("");
     setCancelConfirmOpen(false);
+    useOrdersStore.getState().loadForTenant();
     window.dispatchEvent(new Event("orders:changed"));
     toast.success("تم إلغاء الطلب");
   }

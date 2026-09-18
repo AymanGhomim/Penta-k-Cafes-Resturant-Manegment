@@ -11,6 +11,7 @@ import type {
   OrderType,
 } from "@/types/order.types";
 import { orderService } from "@/services/order.service";
+import { orderApiService } from "@/services/order-api.service";
 
 type ManualOrderInput = {
   orderType: OrderType;
@@ -25,6 +26,7 @@ interface OrdersState {
   orders: Order[];
   tenantId: string;
   loadForTenant: (tenantId?: string) => void;
+  setOrders: (orders: Order[], tenantId?: string) => void;
   addOrder: (input: ManualOrderInput & { source?: OrderSource }) => Order;
   updateStatus: (orderId: string, status: OrderStatus) => void;
   cancelOrder: (orderId: string) => void;
@@ -33,13 +35,11 @@ interface OrdersState {
 export const useOrdersStore = create<OrdersState>((set, get) => ({
   orders: [],
   tenantId: "",
-  loadForTenant: (tenantId = cafeDataService.tenantId()) =>
-    set({
-      tenantId,
-      orders: cafeDataService
-        .getOrders()
-        .filter((order) => order.tenantId === tenantId),
-    }),
+  loadForTenant: (tenantId = cafeDataService.tenantId()) => {
+    const branchId = branchService.getActiveBranchId(tenantId) ?? undefined;
+    void orderApiService.list(branchId).then((orders) => set({ tenantId, orders })).catch(() => set({ tenantId, orders: cafeDataService.getOrders().filter((order) => order.tenantId === tenantId) }));
+  },
+  setOrders: (orders, tenantId = cafeDataService.tenantId()) => set({ tenantId, orders }),
   addOrder: (input) => {
     const tenantId = cafeDataService.tenantId();
     const branchId = branchService.getActiveBranchId(tenantId) ?? undefined;

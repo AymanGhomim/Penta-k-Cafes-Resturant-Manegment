@@ -22,7 +22,7 @@ export const API_ENDPOINTS = {
     root: "/categories",
   },
   orders: {
-    root: "/orders",
+    root: "/cafe/orders",
   },
   tables: {
     root: "/tables",
