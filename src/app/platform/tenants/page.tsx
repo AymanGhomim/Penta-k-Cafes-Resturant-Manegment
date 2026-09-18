@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Building2,
   Eye,
@@ -23,6 +23,7 @@ import { formatDate } from "@/lib/formatters";
 import { tenantService } from "@/services/tenant.service";
 import { branchService } from "@/services/branch.service";
 import type { TenantStatus } from "@/types/tenant.types";
+import { platformTenantsApiService } from "@/services/platform-tenants-api.service";
 
 const statusLabels: Record<TenantStatus, string> = {
   TRIAL: "تجريبي",
@@ -44,8 +45,16 @@ export default function PlatformTenantsPage() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("ALL");
   const [plan, setPlan] = useState("ALL");
+  const [tenants, setTenants] = useState(() => tenantService.listTenants());
   const debouncedQuery = useDebouncedValue(query);
-  const tenants = tenantService.listTenants();
+  useEffect(() => {
+    void platformTenantsApiService.list()
+      .then((remote) => {
+        setTenants(remote);
+        remote.forEach((tenant) => tenantService.createTenant(tenant));
+      })
+      .catch(() => setTenants(tenantService.listTenants()));
+  }, []);
   const filtered = useMemo(
     () =>
       tenants.filter((tenant) => {

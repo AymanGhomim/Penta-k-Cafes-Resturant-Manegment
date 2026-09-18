@@ -29,6 +29,7 @@ import { credentialService } from "@/services/credential.service";
 import { tenantService } from "@/services/tenant.service";
 import type { FeatureKey } from "@/types/platform.types";
 import type { Tenant, TenantBranding } from "@/types/tenant.types";
+import { platformTenantsApiService } from "@/services/platform-tenants-api.service";
 
 const steps = [
   "بيانات الكافيه",
@@ -202,9 +203,12 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
       },
     };
     try {
+      const remoteTenant = tenant
+        ? await platformTenantsApiService.update(tenant.id, payload)
+        : await platformTenantsApiService.create(payload);
       tenant
-        ? tenantService.updateTenant(tenant.id, payload)
-        : tenantService.createTenant(payload);
+        ? tenantService.updateTenant(tenant.id, { ...payload, id: remoteTenant.id })
+        : tenantService.createTenant({ ...payload, id: remoteTenant.id });
       await credentialService.provisionOwner(payload.id, {
         name: draft.ownerName,
         email: draft.ownerEmail,
@@ -220,7 +224,7 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
             : "تم تحديث بيانات الكافيه"
           : "تم إنشاء الكافيه وحساب المسؤول",
       );
-      router.replace(`/platform/tenants/${payload.id}`);
+      router.replace(`/platform/tenants/${remoteTenant.id}`);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "تعذر حفظ بيانات الكافيه.",
