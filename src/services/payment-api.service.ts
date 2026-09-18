@@ -7,5 +7,6 @@ const mapPayment = (item: BackendPayment): PaymentRecord => ({ id: item.id, tena
 
 export const paymentApiService = {
   async list() { const response = await httpClient.get<Envelope<BackendPayment[]>>("/cafe/payments"); return response.data.data.map(mapPayment); },
+  async create(input: { orderId: string; amount: number; method: PaymentRecord["method"] }) { const response = await httpClient.post<Envelope<BackendPayment>>("/cafe/payments", input); return mapPayment(response.data.data); },
   async refund(id: string, amount: number, reason: string) { const response = await httpClient.patch<Envelope<BackendPayment>>(`/cafe/payments/${id}/refund`, { amount, reason }); return mapPayment(response.data.data); },
 };
