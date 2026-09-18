@@ -25,6 +25,6 @@ export const API_ENDPOINTS = {
     root: "/cafe/orders",
   },
   tables: {
-    root: "/tables",
+    root: "/cafe/tables",
   },
 } as const;
