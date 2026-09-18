@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ExternalLink, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -18,6 +18,7 @@ import { useBranch } from "@/providers/branch-provider";
 import { useCurrentEmployee } from "@/providers/current-employee-provider";
 import { useTenant } from "@/providers/tenant-provider";
 import { branchService } from "@/services/branch.service";
+import { branchApiService } from "@/services/branch-api.service";
 import { cafeDataService } from "@/services/cafe-data.service";
 import { cafeOperationsService } from "@/services/cafe-operations.service";
 import type { BranchSettings, BranchStatus, MenuItem } from "@/types/branch.types";
@@ -60,7 +61,11 @@ export default function BranchDetailsPage() {
   const { refreshBranches } = useBranch();
   const access = useCurrentEmployee();
   const [revision, setRevision] = useState(0);
-  const branch = branchService.getBranch(branchId, tenant.id);
+  const [remoteBranch, setRemoteBranch] = useState<Awaited<ReturnType<typeof branchApiService.find>> | null>(null);
+  useEffect(() => {
+    void branchApiService.find(branchId).then(setRemoteBranch).catch(() => undefined);
+  }, [branchId]);
+  const branch = remoteBranch ?? branchService.getBranch(branchId, tenant.id);
   const menus = branchService.getMenus(tenant.id);
   const products = cafeDataService.getProducts();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
@@ -153,22 +158,22 @@ export default function BranchDetailsPage() {
     );
   }
 
-  function saveOverview() {
+  async function saveOverview() {
     if (!form.name.trim()) return toast.error("اسم الفرع مطلوب.");
     if (!form.address.trim()) return toast.error("عنوان الفرع مطلوب.");
-    branchService.updateBranch(
-      currentBranch.id,
-      {
+    try {
+      const saved = await branchApiService.update(currentBranch.id, {
         name: form.name.trim(),
         code: form.code.trim(),
         phone: form.phone.trim(),
         email: form.email.trim(),
         address: form.address.trim(),
         status: form.status,
-        menuId: form.menuId || undefined,
-      },
-      tenant.id,
-    );
+      });
+      setRemoteBranch(saved);
+    } catch {
+      branchService.updateBranch(currentBranch.id, { name: form.name.trim(), code: form.code.trim(), phone: form.phone.trim(), email: form.email.trim(), address: form.address.trim(), status: form.status, menuId: form.menuId || undefined }, tenant.id);
+    }
     refresh();
     setEditing(false);
     toast.success("تم حفظ كل البيانات الأساسية للفرع.");

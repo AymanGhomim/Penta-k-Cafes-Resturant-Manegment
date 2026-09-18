@@ -17,4 +17,22 @@ export const branchApiService = {
     const response = await httpClient.patch<BackendBranch>(`${API_ENDPOINTS.cafe.branches}/${id}/status`, { isActive });
     return mapBranch(response.data);
   },
+  async create(input: Pick<Branch, "name"> & Partial<Pick<Branch, "code" | "phone" | "email" | "address">> & { status?: Branch["status"] }) {
+    const response = await httpClient.post<BackendBranch>(API_ENDPOINTS.cafe.branches, {
+      ...input,
+      isActive: input.status !== "INACTIVE",
+    });
+    return mapBranch(response.data);
+  },
+  async find(id: string) {
+    const response = await httpClient.get<BackendBranch>(`${API_ENDPOINTS.cafe.branches}/${id}`);
+    return mapBranch(response.data);
+  },
+  async update(id: string, input: Partial<Pick<Branch, "name" | "code" | "phone" | "email" | "address" | "status">>) {
+    const response = await httpClient.patch<BackendBranch>(`${API_ENDPOINTS.cafe.branches}/${id}`, {
+      ...input,
+      isActive: input.status === undefined ? undefined : input.status !== "INACTIVE",
+    });
+    return mapBranch(response.data);
+  },
 };
