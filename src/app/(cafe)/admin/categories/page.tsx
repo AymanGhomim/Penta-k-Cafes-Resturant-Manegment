@@ -20,6 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { cafeDataService } from "@/services/cafe-data.service";
 import { cafeOperationsService } from "@/services/cafe-operations.service";
+import { catalogApiService } from "@/services/catalog-api.service";
 import type { Category } from "@/types/category.types";
 
 export default function CategoriesPage() {
@@ -28,31 +29,49 @@ export default function CategoriesPage() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null);
-  const reload = () => {
-    setCategories(cafeDataService.getCategories());
-    setProducts(cafeDataService.getProducts());
+  const reload = async () => {
+    try {
+      const [remoteCategories, remoteProducts] = await Promise.all([
+        catalogApiService.listCategories(),
+        catalogApiService.listProducts(),
+      ]);
+      setCategories(remoteCategories);
+      setProducts(remoteProducts);
+    } catch {
+      setCategories(cafeDataService.getCategories());
+      setProducts(cafeDataService.getProducts());
+    }
   };
   useEffect(() => {
     reload();
-    const handler = () => reload();
+    const handler = () => void reload();
     window.addEventListener("tenant:changed", handler);
     return () => window.removeEventListener("tenant:changed", handler);
   }, []);
-  const update = (next: Category[]) => {
+  const update = async (next: Category[]) => {
     setCategories(next);
     cafeDataService.saveCategories(next);
   };
   const count = (id: string) =>
     products.filter((product) => product.categoryId === id).length;
-  const addCategory = () => {
+  const addCategory = async () => {
     if (!name.trim()) return toast.error("اسم القسم مطلوب.");
-    const category: Category = {
-      id: `cat-${Date.now()}`,
-      name: name.trim(),
-      sortOrder: categories.length + 1,
-      isActive: true,
-    };
-    update([...categories, category]);
+    let category: Category;
+    try {
+      category = await catalogApiService.createCategory({
+        name: name.trim(),
+        sortOrder: categories.length + 1,
+        isActive: true,
+      });
+    } catch {
+      category = {
+        id: `cat-${Date.now()}`,
+        name: name.trim(),
+        sortOrder: categories.length + 1,
+        isActive: true,
+      };
+    }
+    await update([...categories, category]);
     cafeOperationsService.audit({
       module: "categories",
       action: "CATEGORY_CREATED",
@@ -64,13 +83,18 @@ export default function CategoriesPage() {
     setOpen(false);
     toast.success("تمت إضافة القسم.");
   };
-  const deleteCategory = () => {
+  const deleteCategory = async () => {
     if (!deleteTarget) return;
     if (count(deleteTarget.id))
       return void toast.error(
         "لا يمكن حذف قسم مرتبط بمنتجات. انقل المنتجات أولًا.",
       );
-    update(categories.filter((item) => item.id !== deleteTarget.id));
+    try {
+      await catalogApiService.deleteCategory(deleteTarget.id);
+    } catch {
+      // Keep the local fallback behavior for demo tenants.
+    }
+    await update(categories.filter((item) => item.id !== deleteTarget.id));
     cafeOperationsService.audit({
       module: "categories",
       action: "CATEGORY_DELETED",
