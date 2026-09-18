@@ -9,6 +9,7 @@ import { branchService } from "@/services/branch.service";
 import { customerService } from "@/services/customer.service";
 import { employeeService } from "@/services/employee.service";
 import { financeService } from "@/services/finance.service";
+import { paymentApiService } from "@/services/payment-api.service";
 import type { PaymentRecord } from "@/types/cafe-operations.types";
 
 export function usePaymentsPage() {
@@ -24,7 +25,7 @@ export function usePaymentsPage() {
   const [method, setMethod] = useState("ALL");
   const [status, setStatus] = useState("ALL");
   const [date, setDate] = useState("");
-  const reload = () => setPayments(financeService.getPayments());
+  const reload = () => { void paymentApiService.list().then(setPayments).catch(() => setPayments(financeService.getPayments())); };
   useEffect(() => {
     reload();
     const reset = () => {
@@ -92,14 +93,11 @@ export function usePaymentsPage() {
     setRefundAmount(String(details.remainingRefundable));
     setRefundOpen(true);
   }
-  function processRefund() {
+  async function processRefund() {
     if (!details) return;
     try {
-      financeService.processRefund(
-        details.payment.id,
-        Number(refundAmount),
-        refundReason,
-      );
+      try { await paymentApiService.refund(details.payment.id, Number(refundAmount), refundReason); }
+      catch { financeService.processRefund(details.payment.id, Number(refundAmount), refundReason); }
       setConfirmRefund(false);
       setRefundOpen(false);
       setRefundAmount("");
