@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/admin/admin-shell";
@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input";
 import { useTenant } from "@/providers/tenant-provider";
 import { branchService } from "@/services/branch.service";
 import { cafeDataService } from "@/services/cafe-data.service";
+import { catalogApiService } from "@/services/catalog-api.service";
+import { menuApiService } from "@/services/menu-api.service";
 import type { Menu } from "@/types/branch.types";
 
 type DraftItem = {
@@ -23,13 +25,18 @@ export default function MenusPage() {
   const { tenant } = useTenant();
   const [revision, setRevision] = useState(0);
   const [editing, setEditing] = useState<Menu | "new" | null>(null);
-  const menus = branchService.getMenus(tenant.id);
+  const [menus, setMenus] = useState<Menu[]>(() => branchService.getMenus(tenant.id));
   const branches = branchService.getBranches(tenant.id);
-  const products = cafeDataService.getProducts();
+  const [products, setProducts] = useState(cafeDataService.getProducts());
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [menuStatus, setMenuStatus] = useState<"ACTIVE" | "INACTIVE">("ACTIVE");
   const [items, setItems] = useState<DraftItem[]>([]);
+  useEffect(() => {
+    void Promise.all([menuApiService.list(), catalogApiService.listProducts()])
+      .then(([remoteMenus, remoteProducts]) => { setMenus(remoteMenus); setProducts(remoteProducts); })
+      .catch(() => undefined);
+  }, [revision]);
   const usage = useMemo(
     () =>
       new Map(
@@ -42,23 +49,18 @@ export default function MenusPage() {
   );
   const refresh = () => setRevision((value) => value + 1);
   void revision;
-  const open = (menu?: Menu) => {
+  const open = async (menu?: Menu) => {
     setEditing(menu ?? "new");
     setName(menu?.name ?? "");
     setDescription(menu?.description ?? "");
     setMenuStatus(menu?.status ?? "ACTIVE");
-    setItems(
-      menu
-        ? branchService
-            .getMenuItems(menu.id, tenant.id)
-            .map(({ productId, price, available, sortOrder }) => ({
-              productId,
-              price,
-              available,
-              sortOrder,
-            }))
-        : [],
-    );
+    if (!menu) return setItems([]);
+    try {
+      const remoteItems = await menuApiService.listItems(menu.id);
+      setItems(remoteItems.map(({ productId, price, available, sortOrder }) => ({ productId, price, available, sortOrder })));
+    } catch {
+      setItems(branchService.getMenuItems(menu.id, tenant.id).map(({ productId, price, available, sortOrder }) => ({ productId, price, available, sortOrder })));
+    }
   };
   const toggle = (productId: string, basePrice: number) =>
     setItems((current) =>
@@ -74,21 +76,25 @@ export default function MenusPage() {
             },
           ],
     );
-  const save = () => {
+  const save = async () => {
     if (!name.trim()) return toast.error("اسم المنيو مطلوب");
-    if (editing === "new")
-      branchService.createMenu(
-        { name, description, status: menuStatus },
-        items,
-        tenant.id,
-      );
-    else if (editing)
-      branchService.updateMenu(
-        editing.id,
-        { name, description, status: menuStatus },
-        items,
-        tenant.id,
-      );
+    try {
+      const savedMenu = editing === "new"
+        ? await menuApiService.create({ name: name.trim(), description: description.trim(), status: menuStatus })
+        : editing
+          ? await menuApiService.update(editing.id, { name: name.trim(), description: description.trim(), status: menuStatus })
+          : null;
+      if (savedMenu) {
+        if (editing !== "new") {
+          const existingItems = await menuApiService.listItems(savedMenu.id);
+          await Promise.all(existingItems.map((item) => menuApiService.removeItem(savedMenu.id, item.id)));
+        }
+        await Promise.all(items.map((item) => menuApiService.createItem(savedMenu.id, item)));
+      }
+    } catch {
+      if (editing === "new") branchService.createMenu({ name, description, status: menuStatus }, items, tenant.id);
+      else if (editing) branchService.updateMenu(editing.id, { name, description, status: menuStatus }, items, tenant.id);
+    }
     setEditing(null);
     refresh();
     toast.success("تم حفظ المنيو");
@@ -162,15 +168,17 @@ export default function MenusPage() {
                         <Button
                           variant="outline"
                           size="icon"
-                          onClick={() => {
-                            branchService.duplicateMenu(
-                              menu.id,
-                              `${menu.name} - نسخة`,
-                              tenant.id,
-                            );
+                          onClick={() => void (async () => {
+                            try {
+                              const copied = await menuApiService.create({ name: `${menu.name} - نسخة`, description: menu.description, status: menu.status });
+                              const sourceItems = await menuApiService.listItems(menu.id);
+                              await Promise.all(sourceItems.map(({ productId, price, available, sortOrder }) => menuApiService.createItem(copied.id, { productId, price, available, sortOrder })));
+                            } catch {
+                              branchService.duplicateMenu(menu.id, `${menu.name} - نسخة`, tenant.id);
+                            }
                             refresh();
                             toast.success("تم نسخ المنيو");
-                          }}
+                          })()}
                           aria-label="نسخ"
                         >
                           <Copy className="h-4 w-4" />
@@ -179,19 +187,21 @@ export default function MenusPage() {
                           variant="outline"
                           size="icon"
                           className="text-destructive"
-                          onClick={() => {
+                          onClick={() => void (async () => {
                             try {
-                              branchService.removeMenu(menu.id, tenant.id);
+                              await menuApiService.remove(menu.id);
                               refresh();
                               toast.success("تم حذف المنيو");
                             } catch (error) {
-                              toast.error(
-                                error instanceof Error
-                                  ? error.message
-                                  : "تعذر الحذف",
-                              );
+                              try {
+                                branchService.removeMenu(menu.id, tenant.id);
+                                refresh();
+                                toast.success("تم حذف المنيو");
+                              } catch (fallbackError) {
+                                toast.error(fallbackError instanceof Error ? fallbackError.message : error instanceof Error ? error.message : "تعذر الحذف");
+                              }
                             }
-                          }}
+                          })()}
                           aria-label="حذف"
                         >
                           <Trash2 className="h-4 w-4" />
