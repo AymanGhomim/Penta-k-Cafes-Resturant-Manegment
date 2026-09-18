@@ -1,5 +1,6 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
 import { APP_CONFIG } from "@/config/app.config";
+import { API_ENDPOINTS } from "@/services/api-endpoints";
 
 export type ApiError = {
   message: string;
@@ -54,7 +55,20 @@ class HttpClient {
 
     this.client.interceptors.response.use(
       (response) => response,
-      (error: AxiosError) => {
+      async (error: AxiosError) => {
+        const config = error.config as (AxiosRequestConfig & { _retry?: boolean }) | undefined;
+        const url = config?.url || "";
+        if (error.response?.status === 401 && config && !config._retry && !url.includes(API_ENDPOINTS.auth.refresh)) {
+          config._retry = true;
+          try {
+            const refreshed = await this.client.post<{ data: { accessToken: string } }>(API_ENDPOINTS.auth.refresh);
+            if (typeof window !== "undefined") localStorage.setItem("accessToken", refreshed.data.data.accessToken);
+            if (config.headers) config.headers.Authorization = `Bearer ${refreshed.data.data.accessToken}`;
+            return this.client.request(config);
+          } catch {
+            if (typeof window !== "undefined") localStorage.removeItem("accessToken");
+          }
+        }
         const normalized = normalizeError(error);
         return Promise.reject(normalized);
       }

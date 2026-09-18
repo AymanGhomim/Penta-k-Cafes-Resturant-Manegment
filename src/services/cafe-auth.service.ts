@@ -1,4 +1,5 @@
 import { httpClient } from "@/services/http-client";
+import { authSessionService } from "@/services/auth-session.service";
 import { API_ENDPOINTS } from "@/services/api-endpoints";
 import type { CafeLoginErrorCode, CafeLoginRequest } from "@/types/auth.types";
 import type { CafeEmployee } from "@/types/access-control.types";
@@ -18,7 +19,8 @@ export const cafeAuthService = {
       }>(API_ENDPOINTS.auth.cafeLogin, request);
       const result = response.data.data;
       if (typeof window !== "undefined") localStorage.setItem("accessToken", result.accessToken);
-      return { ok: true, employee: { id: result.user.id, name: result.user.name, status: "ACTIVE", roleId: result.user.role } as CafeEmployee, tenant: result.tenant as Tenant };
+      const user = await authSessionService.me();
+      return { ok: true, employee: { id: user.id, name: user.name, email: user.email, status: "ACTIVE", roleId: user.role } as CafeEmployee, tenant: result.tenant as Tenant };
     } catch (error) {
       const code = (error as { code?: string }).code;
       return { ok: false, code: code === "TENANT_NOT_FOUND" ? "TENANT_NOT_FOUND" : code === "CLIENT_TYPE_NOT_ALLOWED" ? "CLIENT_TYPE_NOT_ALLOWED" : code === "EMPLOYEE_SUSPENDED" ? "EMPLOYEE_SUSPENDED" : "INVALID_CREDENTIALS" };

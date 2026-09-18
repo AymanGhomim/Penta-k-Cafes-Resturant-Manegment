@@ -1,5 +1,6 @@
 import { API_ENDPOINTS } from "@/services/api-endpoints";
 import { httpClient } from "@/services/http-client";
+import { authSessionService } from "@/services/auth-session.service";
 
 export type PlatformAuthUser = {
   id: string;
@@ -26,6 +27,7 @@ export const platformAuthService = {
     });
     const result = response.data.data;
     if (typeof window !== "undefined") localStorage.setItem("accessToken", result.accessToken);
-    return result;
+    const user = await authSessionService.me();
+    return { ...result, user };
   },
 };
