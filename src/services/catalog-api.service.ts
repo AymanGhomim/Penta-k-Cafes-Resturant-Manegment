@@ -25,4 +25,27 @@ export const catalogApiService = {
     const response = await httpClient.get<ApiEnvelope<Array<Product & { defaultPrice: number }>>>(API_ENDPOINTS.cafe.products);
     return response.data.data.map(({ defaultPrice, ...product }) => ({ ...product, price: defaultPrice }));
   },
+  async createProduct(input: Pick<Product, "name" | "categoryId" | "isAvailable"> & Partial<Pick<Product, "description" | "image">> & { price: number }) {
+    const response = await httpClient.post<ApiEnvelope<Product & { defaultPrice: number }>>(API_ENDPOINTS.cafe.products, {
+      name: input.name,
+      description: input.description,
+      categoryId: input.categoryId,
+      image: input.image,
+      isAvailable: input.isAvailable,
+      defaultPrice: input.price,
+    });
+    const { defaultPrice, ...product } = response.data.data;
+    return { ...product, price: defaultPrice };
+  },
+  async updateProduct(id: string, input: Partial<Pick<Product, "name" | "categoryId" | "isAvailable">> & Partial<Pick<Product, "description" | "image">> & { price?: number }) {
+    const response = await httpClient.patch<ApiEnvelope<Product & { defaultPrice: number }>>(`${API_ENDPOINTS.cafe.products}/${id}`, {
+      ...input,
+      defaultPrice: input.price,
+    });
+    const { defaultPrice, ...product } = response.data.data;
+    return { ...product, price: defaultPrice };
+  },
+  async deleteProduct(id: string) {
+    await httpClient.delete(`${API_ENDPOINTS.cafe.products}/${id}`);
+  },
 };

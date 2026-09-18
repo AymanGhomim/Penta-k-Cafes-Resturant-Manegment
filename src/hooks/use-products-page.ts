@@ -11,6 +11,7 @@ import {
 } from "@/components/features/products/product-model";
 import { usePagination } from "@/hooks/use-pagination";
 import { cafeDataService } from "@/services/cafe-data.service";
+import { catalogApiService } from "@/services/catalog-api.service";
 import { cafeOperationsService } from "@/services/cafe-operations.service";
 import { reportService } from "@/services/report.service";
 import type { Category } from "@/types/category.types";
@@ -38,13 +39,23 @@ export function useProductsPage() {
   const [form, setForm] = useState<ProductFormDraft>(emptyForm);
 
   useEffect(() => {
-    const reload = () => {
-      setProducts(toProductRows(cafeDataService.getProducts()));
-      setCategories(cafeDataService.getCategories());
+    const reload = async () => {
+      try {
+        const [remoteProducts, remoteCategories] = await Promise.all([
+          catalogApiService.listProducts(),
+          catalogApiService.listCategories(),
+        ]);
+        setProducts(toProductRows(remoteProducts));
+        setCategories(remoteCategories);
+      } catch {
+        setProducts(toProductRows(cafeDataService.getProducts()));
+        setCategories(cafeDataService.getCategories());
+      }
     };
-    reload();
-    window.addEventListener("tenant:changed", reload);
-    return () => window.removeEventListener("tenant:changed", reload);
+    void reload();
+    const handler = () => void reload();
+    window.addEventListener("tenant:changed", handler);
+    return () => window.removeEventListener("tenant:changed", handler);
   }, []);
 
   const filteredProducts = useMemo(
@@ -83,7 +94,7 @@ export function useProductsPage() {
     setFormOpen(true);
   }
 
-  function saveProduct() {
+  async function saveProduct() {
     const price = Number(form.price);
     const cost = Number(form.cost);
     const tax = Number(form.tax);
@@ -101,37 +112,60 @@ export function useProductsPage() {
       categoryId: form.categoryId,
       image: editing?.image,
       isAvailable: true,
-      id: editing?.id ?? `prod-${Date.now()}`,
-      cost: Number(form.cost) || 0,
-      stock: editing?.stock ?? 0,
-      online: true,
-      pos: true,
     };
-    setProducts((current) => {
-      const next = editing
-        ? current.map((product) =>
-            product.id === editing.id ? { ...product, ...data } : product,
-          )
-        : [data, ...current];
-      cafeDataService.saveProducts(next);
-      return next;
-    });
+    try {
+      const saved = editing
+        ? await catalogApiService.updateProduct(editing.id, data)
+        : await catalogApiService.createProduct(data);
+      setProducts((current) => {
+        const next = editing
+          ? current.map((product) => product.id === editing.id ? { ...product, ...toProductRows([saved])[0] } : product)
+          : [toProductRows([saved])[0], ...current];
+        return next;
+      });
+    } catch {
+      const localData = {
+        ...data,
+        id: editing?.id ?? `prod-${Date.now()}`,
+        cost: Number(form.cost) || 0,
+        stock: editing?.stock ?? 0,
+        online: true,
+        pos: true,
+      };
+      setProducts((current) => {
+        const next = editing
+          ? current.map((product) => product.id === editing.id ? { ...product, ...localData } : product)
+          : [localData, ...current];
+        cafeDataService.saveProducts(next);
+        return next;
+      });
+    }
     setFormOpen(false);
     toast.success("تم حفظ المنتج");
   }
 
-  function duplicateProduct(product: ProductRow) {
-    setProducts((current) => {
-      const next = [...current, { ...product, id: `${product.id}-copy` }];
-      cafeDataService.saveProducts(next);
-      return next;
-    });
+  async function duplicateProduct(product: ProductRow) {
+    try {
+      const saved = await catalogApiService.createProduct(product);
+      setProducts((current) => [toProductRows([saved])[0], ...current]);
+    } catch {
+      setProducts((current) => {
+        const next = [...current, { ...product, id: `${product.id}-copy` }];
+        cafeDataService.saveProducts(next);
+        return next;
+      });
+    }
   }
 
-  function removeProduct() {
+  async function removeProduct() {
     if (!deleteTarget) return;
+    try {
+      await catalogApiService.deleteProduct(deleteTarget.id);
+    } catch {
+      const next = products.filter((item) => item.id !== deleteTarget.id);
+      cafeDataService.saveProducts(next);
+    }
     const next = products.filter((item) => item.id !== deleteTarget.id);
-    cafeDataService.saveProducts(next);
     setProducts(next);
     cafeOperationsService.audit({
       module: "products",
