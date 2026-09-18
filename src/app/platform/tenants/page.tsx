@@ -51,7 +51,10 @@ export default function PlatformTenantsPage() {
     void platformTenantsApiService.list()
       .then((remote) => {
         setTenants(remote);
-        remote.forEach((tenant) => tenantService.createTenant(tenant));
+        remote.forEach((tenant) => {
+          if (tenantService.getTenant(tenant.id)) tenantService.updateTenant(tenant.id, tenant);
+          else tenantService.createTenant(tenant);
+        });
       })
       .catch(() => setTenants(tenantService.listTenants()));
   }, []);
