@@ -28,6 +28,7 @@ export default function CategoriesPage() {
   const [products, setProducts] = useState(cafeDataService.getProducts());
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null);
   const reload = async () => {
     try {
@@ -54,8 +55,22 @@ export default function CategoriesPage() {
   };
   const count = (id: string) =>
     products.filter((product) => product.categoryId === id).length;
-  const addCategory = async () => {
+  const saveCategory = async () => {
     if (!name.trim()) return toast.error("اسم القسم مطلوب.");
+    if (editingCategory) {
+      const nextCategory = { ...editingCategory, name: name.trim() };
+      try {
+        const saved = await catalogApiService.updateCategory(editingCategory.id, { name: name.trim() });
+        setCategories((current) => current.map((item) => item.id === editingCategory.id ? saved : item));
+      } catch {
+        await update(categories.map((item) => item.id === editingCategory.id ? nextCategory : item));
+      }
+      setEditingCategory(null);
+      setName("");
+      setOpen(false);
+      toast.success("تم تعديل القسم.");
+      return;
+    }
     let category: Category;
     try {
       category = await catalogApiService.createCategory({
@@ -82,6 +97,16 @@ export default function CategoriesPage() {
     setName("");
     setOpen(false);
     toast.success("تمت إضافة القسم.");
+  };
+  const toggleCategory = async (category: Category) => {
+    const isActive = !category.isActive;
+    try {
+      const saved = await catalogApiService.updateCategory(category.id, { isActive });
+      setCategories((current) => current.map((item) => item.id === category.id ? saved : item));
+    } catch {
+      await update(categories.map((item) => item.id === category.id ? { ...item, isActive } : item));
+    }
+    toast.success(isActive ? "تم تفعيل القسم." : "تم تعطيل القسم.");
   };
   const deleteCategory = async () => {
     if (!deleteTarget) return;
@@ -122,7 +147,7 @@ export default function CategoriesPage() {
           <PermissionGate permission="categories.manage"><Button
             type="button"
             className="h-10 rounded-lg"
-            onClick={() => setOpen(true)}
+            onClick={() => { setEditingCategory(null); setName(""); setOpen(true); }}
           >
             <Plus className="ml-2 h-4 w-4" />
             إضافة قسم
@@ -192,17 +217,17 @@ export default function CategoriesPage() {
                             type="button"
                             variant="ghost"
                             className="h-8 rounded-lg text-xs"
-                            onClick={() =>
-                              update(
-                                categories.map((item) =>
-                                  item.id === category.id
-                                    ? { ...item, isActive: !item.isActive }
-                                    : item,
-                                ),
-                              )
-                            }
+                            onClick={() => void toggleCategory(category)}
                           >
                             {category.isActive ? "تعطيل" : "تفعيل"}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-8 rounded-lg text-xs"
+                            onClick={() => { setEditingCategory(category); setName(category.name); setOpen(true); }}
+                          >
+                            تعديل
                           </Button>
                           <Button
                             type="button"
@@ -230,9 +255,9 @@ export default function CategoriesPage() {
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent dir="rtl" className="max-w-md">
             <DialogHeader>
-              <DialogTitle>إضافة قسم</DialogTitle>
+              <DialogTitle>{editingCategory ? "تعديل القسم" : "إضافة قسم"}</DialogTitle>
               <DialogDescription>
-                أدخل اسم القسم وسيضاف في نهاية ترتيب العرض.
+                {editingCategory ? "عدّل اسم القسم ثم احفظ التغييرات." : "أدخل اسم القسم وسيضاف في نهاية ترتيب العرض."}
               </DialogDescription>
             </DialogHeader>
             <label className="text-sm font-semibold">
@@ -243,7 +268,7 @@ export default function CategoriesPage() {
                 onChange={(event) => setName(event.target.value)}
               />
             </label>
-            <Button onClick={addCategory}>حفظ القسم</Button>
+            <Button onClick={() => void saveCategory()}>{editingCategory ? "حفظ التعديل" : "حفظ القسم"}</Button>
           </DialogContent>
         </Dialog>
         <ConfirmDialog
