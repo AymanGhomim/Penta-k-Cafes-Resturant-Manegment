@@ -34,6 +34,7 @@ class HttpClient {
   constructor() {
     this.client = axios.create({
       baseURL: APP_CONFIG.apiBaseUrl,
+      withCredentials: true,
       headers: {
         "Content-Type": "application/json",
       },

@@ -1,6 +1,6 @@
 export const API_ENDPOINTS = {
   auth: {
-    login: "/auth/login",
+    platformLogin: "/auth/platform/login",
     me: "/auth/me",
   },
   menu: {

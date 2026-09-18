@@ -8,29 +8,35 @@ import { Input } from "@/components/ui/input";
 import { PlatformLogo } from "@/components/platform/platform-logo";
 import { PLATFORM_CONFIG } from "@/config/platform.config";
 import { useAuthStore } from "@/store/auth.store";
+import { platformAuthService } from "@/services/platform-auth.service";
 
-const TEMPORARY_PLATFORM_EMAIL = "platform@example.com";
-const TEMPORARY_PLATFORM_PASSWORD = "platform123";
+const DEFAULT_PLATFORM_EMAIL = "owner@penta-k.com";
 
 export default function PlatformLoginPage() {
   const router = useRouter();
   const login = useAuthStore((state) => state.login);
-  const [email, setEmail] = useState(TEMPORARY_PLATFORM_EMAIL);
-  const [password, setPassword] = useState(TEMPORARY_PLATFORM_PASSWORD);
+  const [email, setEmail] = useState(DEFAULT_PLATFORM_EMAIL);
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (
-      email.trim().toLowerCase() === TEMPORARY_PLATFORM_EMAIL &&
-      password === TEMPORARY_PLATFORM_PASSWORD
-    ) {
-      login({ id: "platform-development", name: "Platform Owner", email, role: "platform_super_admin" });
+    setError("");
+    try {
+      const result = await platformAuthService.login(email.trim(), password);
+      login({
+        id: result.user.id,
+        name: result.user.name,
+        email: result.user.email,
+        role: "platform_super_admin",
+        tenantId: result.user.tenantId ?? undefined,
+      });
       router.replace("/platform/dashboard");
-      return;
+    } catch (requestError) {
+      const error = requestError as { message?: string };
+      setError(error.message || "بيانات الدخول غير صحيحة.");
     }
-    setError("بيانات الدخول غير صحيحة.");
   };
 
   return (
@@ -48,12 +54,6 @@ export default function PlatformLoginPage() {
             {error ? <p className="rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-600">{error}</p> : null}
             <Button className="h-12 w-full gap-2 bg-[#374151] text-white hover:bg-[#111827]" type="submit">تسجيل الدخول <ArrowLeft className="h-4 w-4" /></Button>
           </form>
-          <div className="mt-5 rounded-xl border border-dashed border-[#D0D5DD] bg-[#F9FAFB] p-4 text-sm text-[#475467]">
-            <p className="font-black text-[#344054]">بيانات الدخول المؤقتة</p>
-            <p className="mt-2" dir="ltr">{TEMPORARY_PLATFORM_EMAIL}</p>
-            <p dir="ltr">{TEMPORARY_PLATFORM_PASSWORD}</p>
-            <p className="mt-2 text-xs">هذه مصادقة Frontend مؤقتة لحين ربط نظام الدخول بالـ Backend.</p>
-          </div>
           <p className="mt-8 text-center text-xs text-[#98A2B3]">{PLATFORM_CONFIG.name} · {PLATFORM_CONFIG.tagline}</p>
         </div></section>
       </div>
