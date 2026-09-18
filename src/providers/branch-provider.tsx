@@ -10,6 +10,7 @@ import {
 import { toast } from "sonner";
 import { useTenant } from "@/providers/tenant-provider";
 import { branchService } from "@/services/branch.service";
+import { branchApiService } from "@/services/branch-api.service";
 import { useCartStore } from "@/store/cart.store";
 import { useOrdersStore } from "@/store/orders.store";
 import type { Branch } from "@/types/branch.types";
@@ -34,22 +35,29 @@ export function BranchProvider({ children }: { children: React.ReactNode }) {
   const [branchId, setBranchId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const refreshBranches = useCallback(() => {
-    const all = branchService.getBranches(tenant.id);
-    const next = employee
-      ? employeeService.getAccessibleBranches(employee, tenant.id)
-      : all;
-    const saved = branchService.getActiveBranchId(tenant.id);
-    const requestedBranchId = customerRoute.context?.branch.id;
-    const validBranchId = requestedBranchId && next.some((item) => item.id === requestedBranchId)
-      ? requestedBranchId
-      : next.some((item) => item.id === saved)
-        ? saved
-        : (next.find((item) => item.status === "ACTIVE")?.id ?? null);
-    if (validBranchId !== saved)
-      branchService.setActiveBranch(validBranchId, tenant.id);
-    setBranches(next);
-    setBranchId(validBranchId);
-    setLoading(false);
+    void (async () => {
+      let all;
+      try {
+        all = await branchApiService.list();
+      } catch {
+        all = branchService.getBranches(tenant.id);
+      }
+      const next = employee
+        ? employeeService.getAccessibleBranches(employee, tenant.id).filter((item) => all.some((remote) => remote.id === item.id))
+        : all;
+      const saved = branchService.getActiveBranchId(tenant.id);
+      const requestedBranchId = customerRoute.context?.branch.id;
+      const validBranchId = requestedBranchId && next.some((item) => item.id === requestedBranchId)
+        ? requestedBranchId
+        : next.some((item) => item.id === saved)
+          ? saved
+          : (next.find((item) => item.status === "ACTIVE")?.id ?? null);
+      if (validBranchId !== saved)
+        branchService.setActiveBranch(validBranchId, tenant.id);
+      setBranches(next);
+      setBranchId(validBranchId);
+      setLoading(false);
+    })();
   }, [customerRoute.context?.branch.id, employee, tenant.id]);
   useEffect(() => {
     setLoading(true);
