@@ -46,6 +46,7 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
     ? credentialService.getOwner(tenant.id)
     : undefined;
   const [step, setStep] = useState(0);
+  const [remoteTenants, setRemoteTenants] = useState<{ id: string; slug: string }[]>([]);
   const [submitted, setSubmitted] = useState(false);
   const [draft, setDraft] = useState<TenantDraft>(() => {
     const plan = normalizePlanCode(
@@ -104,12 +105,14 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
         slug: slugifyTenant(current.name),
       }));
   }, [draft.name, draft.slug]);
+  useEffect(() => {
+    void platformTenantsApiService.list()
+      .then((tenants) => setRemoteTenants(tenants.map((item) => ({ id: item.id, slug: item.slug }))))
+      .catch(() => setRemoteTenants([]));
+  }, []);
   const duplicate = useMemo(
-    () =>
-      tenantService
-        .listTenants()
-        .some((item) => item.slug === draft.slug && item.id !== tenant?.id),
-    [draft.slug, tenant?.id],
+    () => remoteTenants.some((item) => item.slug === draft.slug && item.id !== tenant?.id),
+    [draft.slug, remoteTenants, tenant?.id],
   );
   const update = <K extends keyof TenantDraft>(key: K, value: TenantDraft[K]) =>
     setDraft((current) => ({ ...current, [key]: value }));
