@@ -36,11 +36,11 @@ export function BranchProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const refreshBranches = useCallback(() => {
     void (async () => {
-      let all;
+      let all: Branch[];
       try {
         all = await branchApiService.list();
       } catch {
-        all = branchService.getBranches(tenant.id);
+        all = [];
       }
       const next = employee
         ? employeeService.getAccessibleBranches(employee, tenant.id).filter((item) => all.some((remote) => remote.id === item.id))
