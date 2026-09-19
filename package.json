@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "predev": "node scripts/clean-next.js",
+    "predev": "node scripts/clean-next.js dev",
     "dev": "next dev",
-    "prebuild": "node scripts/clean-next.js",
+    "prebuild": "node scripts/clean-next.js build",
     "build": "next build",
     "prestart": "npm run build",
     "start": "next start",

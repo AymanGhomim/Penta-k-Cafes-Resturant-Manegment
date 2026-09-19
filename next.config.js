@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Keep the dev server isolated from production builds. Running `build`
+  // while `dev` is open must not delete the files the browser is using.
+  distDir: process.env.NODE_ENV === "development" ? ".next-dev" : ".next",
   experimental: {
     // Keep production builds stable on constrained CI/developer machines.
     cpus: 1,
