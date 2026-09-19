@@ -7,7 +7,7 @@ import { useCurrentEmployee } from "@/providers/current-employee-provider";
 import { useTenant } from "@/providers/tenant-provider";
 import { branchService } from "@/services/branch.service";
 import { customerService } from "@/services/customer.service";
-import { employeeService } from "@/services/employee.service";
+import { employeeApiService } from "@/services/employee-api.service";
 import { paymentApiService } from "@/services/payment-api.service";
 import type { PaymentRecord } from "@/types/cafe-operations.types";
 
@@ -68,11 +68,9 @@ export function usePaymentsPage() {
       .getBranches(tenant.id)
       .map((branch) => [branch.id, branch.name]),
   );
-  const employees = new Map(
-    employeeService
-      .getEmployees(tenant.id)
-      .map((employee) => [employee.id, employee.name]),
-  );
+  const [employeeRows, setEmployeeRows] = useState<Awaited<ReturnType<typeof employeeApiService.list>>>([]);
+  useEffect(() => { void employeeApiService.list().then(setEmployeeRows).catch(() => setEmployeeRows([])); }, []);
+  const employees = new Map(employeeRows.map((employee) => [employee.id, employee.name]));
   const customers = new Map(
     customerService
       .getCustomers()

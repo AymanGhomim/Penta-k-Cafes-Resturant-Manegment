@@ -14,9 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatMoney } from "@/lib/money";
 import { useBranch } from "@/providers/branch-provider";
-import { useCurrentEmployee } from "@/providers/current-employee-provider";
 import { useTenant } from "@/providers/tenant-provider";
-import { employeeService } from "@/services/employee.service";
 import { reportService, type ReportFilters } from "@/services/report.service";
 import { reportApiService, type RemoteReport } from "@/services/report-api.service";
 import type {
@@ -34,7 +32,6 @@ const methodLabels = {
 export default function ReportsPage() {
   const { tenant } = useTenant();
   const { branch } = useBranch();
-  const access = useCurrentEmployee();
   const [revision, setRevision] = useState(0);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -58,11 +55,7 @@ export default function ReportsPage() {
     };
   }, [branch?.id]);
   void revision;
-  const accessible = access.employee
-    ? employeeService.getAccessibleBranches(access.employee, tenant.id)
-    : branch
-      ? [branch]
-      : [];
+  const accessible = branch ? [branch] : [];
   const filters: ReportFilters = {
     allowedBranchIds: accessible.map((branch) => branch.id),
     from: from || undefined,
