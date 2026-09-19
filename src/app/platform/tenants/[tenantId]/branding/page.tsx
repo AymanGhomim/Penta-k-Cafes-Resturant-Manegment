@@ -7,7 +7,7 @@ import { RotateCcw, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { tenantService } from "@/services/tenant.service";
+import { platformTenantsApiService } from "@/services/platform-tenants-api.service";
 import {
   TenantDetailHeader,
   TenantTabs,
@@ -42,7 +42,12 @@ const colorFields: [keyof TenantBranding, string][] = [
 ];
 export default function TenantBrandingPage() {
   const { tenantId } = useParams<{ tenantId: string }>();
-  const tenant = tenantService.getTenant(tenantId);
+  const [tenant, setTenant] = useState<Tenant | null>(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    platformTenantsApiService.find(tenantId).then(setTenant).catch(() => setTenant(null)).finally(() => setLoading(false));
+  }, [tenantId]);
+  if (loading) return <section className="mx-auto max-w-[1500px] p-10 text-sm text-[#667085]">جاري تحميل بيانات الكافيه...</section>;
   if (!tenant)
     return (
       <AppNotFoundState
@@ -79,17 +84,18 @@ function BrandingEditor({ tenant }: { tenant: Tenant }) {
   }, [isDirty]);
   const update = (key: keyof TenantBranding, value: string) =>
     setBranding((current) => ({ ...current, [key]: value }));
-  const save = () => {
+  const save = async () => {
     const normalized = normalizeTenantBranding(branding);
     setSaving(true);
     try {
-      tenantService.updateTenant(tenant.id, { branding: normalized });
+      const updated = await platformTenantsApiService.update(tenant.id, { branding: normalized });
       setBranding(normalized);
       setSavedBranding(normalized);
+      if (updated) window.dispatchEvent(new Event("tenant:branding-changed"));
       toast.success("تم حفظ التغييرات بنجاح");
     } catch {
       toast.error(
-        "تعذر حفظ الصور محليًا. جرّب صورة أصغر أو احذف بيانات الموقع المحلية.",
+        "تعذر حفظ الهوية في الخادم. تحقق من الاتصال والصلاحيات ثم حاول مرة أخرى.",
       );
     } finally {
       setSaving(false);
