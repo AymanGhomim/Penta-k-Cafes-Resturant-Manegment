@@ -216,7 +216,7 @@ export const checkoutService = {
     if (input.expectedBranchId && input.expectedBranchId !== branchId) throw new Error("سياق الفرع غير صحيح.");
     const table = input.tableId ? cafeDataService.getTables().find((item) => item.id === input.tableId) : undefined;
     const { items, totals } = this.calculate(input.items, input.couponCode, input.orderType === "DELIVERY" ? input.deliveryZoneId : undefined, input.customerId);
-    const order = await orderApiService.create({ branchId, orderType: input.orderType, source: input.source ?? "POS", tableNumber: table?.number, customerName: input.customerName, customerPhone: input.customerPhone, customerAddress: input.customerAddress, customerNotes: input.customerNotes, discount: totals.discount, tax: totals.tax, serviceCharge: totals.serviceCharge, deliveryFee: totals.deliveryFee, paymentMethod: input.paymentMethod, paymentStatus: input.deferPayment ? "PENDING" : "PAID", items: items.map(apiItem) });
+    const order = await orderApiService.create({ branchId, orderType: input.orderType, source: input.source ?? "POS", tableNumber: table?.number, customerId: input.customerId, couponCode: input.couponCode, customerName: input.customerName, customerPhone: input.customerPhone, customerAddress: input.customerAddress, customerNotes: input.customerNotes, discount: totals.discount, tax: totals.tax, serviceCharge: totals.serviceCharge, deliveryFee: totals.deliveryFee, paymentMethod: input.paymentMethod, paymentStatus: input.deferPayment ? "PENDING" : "PAID", items: items.map(apiItem) });
     if (!input.deferPayment) await paymentApiService.create({ orderId: order.id, amount: order.total, method: input.paymentMethod });
     return { order };
   },
