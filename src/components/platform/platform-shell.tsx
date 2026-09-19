@@ -61,6 +61,7 @@ const groups = [
     title: "النظام",
     items: [
       { href: "/platform/activity-log", label: "سجل النشاط", icon: ReceiptText },
+      { href: "/platform/users", label: "مستخدمو المنصة", icon: UserCircle },
       { href: "/platform/settings", label: "الإعدادات", icon: Settings },
     ],
   },
@@ -89,7 +90,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
       try {
         await Promise.resolve(useAuthStore.persist.rehydrate());
         const current = await authSessionService.me();
-        if (current.role !== "PLATFORM_OWNER") throw new Error("Invalid platform role");
+        if (!current.role.startsWith("PLATFORM_")) throw new Error("Invalid platform role");
         if (!cancelled) {
           login({ id: current.id, name: current.name, email: current.email, role: "platform_super_admin", tenantId: current.tenantId ?? undefined });
         }
