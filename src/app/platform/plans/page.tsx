@@ -4,10 +4,7 @@ import { Check, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import {
-  DEFAULT_PLANS,
-  FEATURE_GROUPS,
-} from "@/config/plans.config";
+import { FEATURE_GROUPS } from "@/config/plans.config";
 import type { FeatureKey, Plan } from "@/types/platform.types";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { platformPlansApiService } from "@/services/platform-plans-api.service";
@@ -25,7 +22,7 @@ const emptyPlan: Plan = {
 };
 
 export default function PlatformPlansPage() {
-  const [plans, setPlans] = useState<Plan[]>(DEFAULT_PLANS);
+  const [plans, setPlans] = useState<Plan[]>([]);
   const [selected, setSelected] = useState("");
   const [editing, setEditing] = useState<Plan | null>(null);
   const [removeId, setRemoveId] = useState<string | null>(null);
@@ -34,7 +31,7 @@ export default function PlatformPlansPage() {
     void platformPlansApiService.list().then((next) => {
       setPlans(next);
       setSelected(next[0]?.code || "");
-    }).catch((error: { message?: string }) => toast.error(error.message || "تعذر تحميل الباقات")).finally(() => setLoading(false));
+    }).catch((error: { message?: string }) => { setPlans([]); setSelected(""); toast.error(error.message || "تعذر تحميل الباقات"); }).finally(() => setLoading(false));
   }, []);
   const save = async () => {
     if (!editing?.name.trim() || !editing.code.trim()) return toast.error("اسم الباقة والكود مطلوبان.");

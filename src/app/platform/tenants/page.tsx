@@ -50,7 +50,7 @@ export default function PlatformTenantsPage() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("ALL");
   const [plan, setPlan] = useState("ALL");
-  const [tenants, setTenants] = useState(() => tenantService.listTenants());
+  const [tenants, setTenants] = useState<ReturnType<typeof tenantService.listTenants>>([]);
   const debouncedQuery = useDebouncedValue(query);
   useEffect(() => {
     void platformTenantsApiService.list()
@@ -61,7 +61,7 @@ export default function PlatformTenantsPage() {
           else tenantService.createTenant(tenant);
         });
       })
-      .catch(() => setTenants(tenantService.listTenants()));
+      .catch(() => setTenants([]));
   }, []);
   const filtered = useMemo(
     () =>
