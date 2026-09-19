@@ -227,6 +227,7 @@ export function usePosPage() {
   async function checkout(payment: PaymentConfirmation) {
     setSubmitting(true);
     try {
+      if (!branch) throw new Error("لا يوجد فرع نشط.");
       const checkoutInput: CheckoutInput = {
         items,
         orderType,
@@ -242,12 +243,11 @@ export function usePosPage() {
         receivedAmount: payment.receivedAmount,
         source: manualOrder ? "MANUAL" : "POS",
       };
-      let order;
-      try {
-        ({ order } = await checkoutService.checkoutRemote(checkoutInput));
-      } catch {
-        ({ order } = checkoutService.checkout(checkoutInput));
-      }
+      const { order } = await checkoutService.checkoutRemote({
+        ...checkoutInput,
+        expectedTenantId: tenant.id,
+        expectedBranchId: branch.id,
+      });
       clearCart();
       resetDraft();
       useOrdersStore.getState().loadForTenant(tenant.id);

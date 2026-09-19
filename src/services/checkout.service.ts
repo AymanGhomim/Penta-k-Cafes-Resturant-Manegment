@@ -67,7 +67,6 @@ function activeContext() {
   const branch = branchService.getBranch(branchId, tenantId);
   if (!branch || branch.status !== "ACTIVE")
     throw new Error("الفرع الحالي غير صالح أو غير نشط.");
-  if (!branch.menuId) throw new Error("يجب تعيين منيو للفرع قبل إنشاء الطلب.");
   return { tenantId, branchId, branch };
 }
 
@@ -130,7 +129,12 @@ export const checkoutService = {
       ].map((product) => [product.id, product]),
     );
     const orderItems = items.map((cart, index) => {
-      const product = catalog.get(cart.productId);
+      const product = catalog.get(cart.productId) ?? {
+        id: cart.productId,
+        name: cart.name,
+        price: cart.price,
+        isAvailable: true,
+      };
       if (!product?.isAvailable)
         throw new Error(`المنتج ${cart.name} غير متاح في منيو الفرع.`);
       const addons = cart.addons ?? [];
