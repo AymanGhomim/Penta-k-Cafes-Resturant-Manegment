@@ -14,7 +14,7 @@ import { useSettingsStore } from "@/store/settings.store";
 import { useTenant } from "@/providers/tenant-provider";
 import { useCurrentEmployee } from "@/providers/current-employee-provider";
 import { credentialService } from "@/services/credential.service";
-import { tenantService } from "@/services/tenant.service";
+import { cafeTenantApiService } from "@/services/cafe-tenant-api.service";
 
 const emptyContact = {
   phone: "",
@@ -84,6 +84,8 @@ export default function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [contact, setContact] = useState(emptyContact);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
   const text = copy[locale];
 
   useEffect(() => {
@@ -95,16 +97,30 @@ export default function SettingsPage() {
   }, [serviceTaxPercent]);
 
   useEffect(() => {
-    setContact({
-      phone: tenant.contact?.phone ?? "",
-      whatsapp: tenant.contact?.whatsapp ?? "",
-      address: tenant.contact?.address ?? "",
-      locationUrl: tenant.contact?.locationUrl ?? "",
-      facebook: tenant.contact?.facebook ?? "",
-      instagram: tenant.contact?.instagram ?? "",
-      tiktok: tenant.contact?.tiktok ?? "",
+    let cancelled = false;
+    void cafeTenantApiService.get().then((remoteTenant) => {
+      if (cancelled) return;
+      setContact({
+        phone: remoteTenant.contact?.phone ?? "",
+        whatsapp: remoteTenant.contact?.whatsapp ?? "",
+        address: remoteTenant.contact?.address ?? "",
+        locationUrl: remoteTenant.contact?.locationUrl ?? "",
+        facebook: remoteTenant.contact?.facebook ?? "",
+        instagram: remoteTenant.contact?.instagram ?? "",
+        tiktok: remoteTenant.contact?.tiktok ?? "",
+      });
+      const remoteTax = remoteTenant.settings?.taxRate;
+      if (typeof remoteTax === "number") {
+        setTaxInput(String(remoteTax));
+        setServiceTaxPercent(remoteTax);
+      }
+    }).catch(() => {
+      if (!cancelled) toast.error(locale === "ar" ? "تعذر تحميل إعدادات الكافيه من الخادم." : "Could not load cafe settings.");
+    }).finally(() => {
+      if (!cancelled) setIsLoadingProfile(false);
     });
-  }, [tenant]);
+    return () => { cancelled = true; };
+  }, [locale, setServiceTaxPercent]);
 
   function handleTaxChange(value: string) {
     if (!canEdit) return;
@@ -140,21 +156,28 @@ export default function SettingsPage() {
     }
   }
 
-  function saveContact() {
-    if (!canEdit) return;
-    tenantService.updateTenant(tenant.id, {
-      contact: {
-        ...tenant.contact,
-        phone: contact.phone.trim(),
-        whatsapp: contact.whatsapp.trim(),
-        address: contact.address.trim(),
-        locationUrl: normalizeWebUrl(contact.locationUrl),
-        facebook: normalizeWebUrl(contact.facebook),
-        instagram: normalizeWebUrl(contact.instagram),
-        tiktok: normalizeWebUrl(contact.tiktok),
-      },
-    });
-    toast.success("تم حفظ بيانات التواصل والسوشيال ميديا وستظهر في المنيو.");
+  async function saveContact() {
+    if (!canEdit || isSavingProfile) return;
+    try {
+      setIsSavingProfile(true);
+      await cafeTenantApiService.update({
+        contact: {
+          phone: contact.phone.trim(),
+          whatsapp: contact.whatsapp.trim(),
+          address: contact.address.trim(),
+          locationUrl: normalizeWebUrl(contact.locationUrl),
+          facebook: normalizeWebUrl(contact.facebook),
+          instagram: normalizeWebUrl(contact.instagram),
+          tiktok: normalizeWebUrl(contact.tiktok),
+        },
+        settings: { taxRate: serviceTaxPercent },
+      });
+      toast.success(locale === "ar" ? "تم حفظ إعدادات الكافيه على الخادم." : "Cafe settings saved to the server.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "تعذر حفظ إعدادات الكافيه.");
+    } finally {
+      setIsSavingProfile(false);
+    }
   }
 
   return (
@@ -191,8 +214,8 @@ export default function SettingsPage() {
                 <ContactField label="Facebook" value={contact.facebook} disabled={!canEdit} placeholder="https://facebook.com/..." onChange={(facebook) => setContact((current) => ({ ...current, facebook }))} />
                 <ContactField label="Instagram" value={contact.instagram} disabled={!canEdit} placeholder="https://instagram.com/..." onChange={(instagram) => setContact((current) => ({ ...current, instagram }))} />
                 <ContactField label="TikTok" value={contact.tiktok} disabled={!canEdit} placeholder="https://tiktok.com/@..." onChange={(tiktok) => setContact((current) => ({ ...current, tiktok }))} />
-                <Button type="button" disabled={!canEdit} onClick={saveContact} className="sm:self-end">
-                  حفظ بيانات التواصل
+                <Button type="button" disabled={!canEdit || isLoadingProfile || isSavingProfile} onClick={saveContact} className="sm:self-end">
+                  {isSavingProfile ? "جارٍ الحفظ..." : "حفظ بيانات التواصل"}
                 </Button>
               </div>
             }

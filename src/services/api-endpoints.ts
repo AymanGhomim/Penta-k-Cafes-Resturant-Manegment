@@ -7,6 +7,7 @@ export const API_ENDPOINTS = {
   },
   platform: { tenants: "/platform/tenants", dashboard: "/platform/dashboard", plans: "/platform/plans", activityLogs: "/platform/activity-logs", users: "/platform/users", roles: "/platform/roles", uploads: "/platform/uploads" },
   cafe: {
+    tenant: "/cafe/tenant",
     branches: "/cafe/branches",
     categories: "/cafe/categories",
     products: "/cafe/products",

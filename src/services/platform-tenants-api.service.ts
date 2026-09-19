@@ -3,7 +3,7 @@ import { API_ENDPOINTS } from "@/services/api-endpoints";
 import { httpClient } from "@/services/http-client";
 import type { Tenant, TenantBranch, TenantMenu } from "@/types/tenant.types";
 
-type BackendTenant = {
+export type BackendTenant = {
   id: string;
   name: string;
   slug: string;
