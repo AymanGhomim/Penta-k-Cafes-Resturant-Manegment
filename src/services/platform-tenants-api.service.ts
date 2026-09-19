@@ -100,4 +100,8 @@ export const platformTenantsApiService = {
     const response = await httpClient.patch<Envelope<BackendTenant>>(`${API_ENDPOINTS.platform.tenants}/${id}/subscription`, input);
     return toFrontendTenant(response.data.data);
   },
+  async archive(id: string) { const response = await httpClient.patch<Envelope<BackendTenant>>(`${API_ENDPOINTS.platform.tenants}/${id}/archive`, {}); return toFrontendTenant(response.data.data); },
+  async remove(id: string) { await httpClient.delete(`${API_ENDPOINTS.platform.tenants}/${id}`); },
+  async inviteOwner(id: string, email?: string) { const response = await httpClient.post<Envelope<{ email: string; expiresAt: string; inviteUrl: string }>>(`${API_ENDPOINTS.platform.tenants}/${id}/invite-owner`, email ? { email } : {}); return response.data.data; },
+  async resetOwnerPassword(id: string, password: string) { const response = await httpClient.post<Envelope<{ email: string }>>(`${API_ENDPOINTS.platform.tenants}/${id}/reset-owner-password`, { password }); return response.data.data; },
 };

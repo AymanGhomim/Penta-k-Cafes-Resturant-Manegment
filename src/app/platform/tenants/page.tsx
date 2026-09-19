@@ -10,6 +10,10 @@ import {
   Palette,
   Pencil,
   ShieldCheck,
+  Archive,
+  KeyRound,
+  Mail,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,6 +28,7 @@ import { tenantService } from "@/services/tenant.service";
 import { branchService } from "@/services/branch.service";
 import type { TenantStatus } from "@/types/tenant.types";
 import { platformTenantsApiService } from "@/services/platform-tenants-api.service";
+import { toast } from "sonner";
 
 const statusLabels: Record<TenantStatus, string> = {
   TRIAL: "تجريبي",
@@ -84,6 +89,12 @@ export default function PlatformTenantsPage() {
       `/admin/dashboard?tenantId=${encodeURIComponent(tenantId)}`,
     );
   };
+
+  const updateList = (id: string, next: Awaited<ReturnType<typeof platformTenantsApiService.find>>) => setTenants((current) => current.map((item) => item.id === id ? next : item));
+  const archiveTenant = async (tenant: (typeof tenants)[number]) => { if (!window.confirm(`أرشفة ${tenant.name}؟`)) return; try { updateList(tenant.id, await platformTenantsApiService.archive(tenant.id)); toast.success("تمت أرشفة الكافيه"); } catch (error) { toast.error((error as { message?: string }).message || "تعذر أرشفة الكافيه"); } };
+  const deleteTenant = async (tenant: (typeof tenants)[number]) => { if (!window.confirm(`حذف ${tenant.name} نهائيًا؟ سيتم حذف بياناته المرتبطة.`)) return; try { await platformTenantsApiService.remove(tenant.id); setTenants((current) => current.filter((item) => item.id !== tenant.id)); toast.success("تم حذف الكافيه"); } catch (error) { toast.error((error as { message?: string }).message || "تعذر حذف الكافيه"); } };
+  const inviteOwner = async (tenant: (typeof tenants)[number]) => { try { const result = await platformTenantsApiService.inviteOwner(tenant.id, tenant.owner?.email); await navigator.clipboard?.writeText(result.inviteUrl); toast.success("تم إنشاء دعوة المسؤول ونسخ الرابط"); } catch (error) { toast.error((error as { message?: string }).message || "تعذر إنشاء الدعوة"); } };
+  const resetOwnerPassword = async (tenant: (typeof tenants)[number]) => { const password = window.prompt("اكتب كلمة المرور الجديدة للمسؤول (8 أحرف على الأقل):"); if (!password) return; try { await platformTenantsApiService.resetOwnerPassword(tenant.id, password); toast.success("تم تغيير كلمة مرور المسؤول"); } catch (error) { toast.error((error as { message?: string }).message || "تعذر تغيير كلمة المرور"); } };
 
   return (
     <section className="mx-auto max-w-[1500px] p-5 sm:p-10">
@@ -251,6 +262,9 @@ export default function PlatformTenantsPage() {
                       icon={ShieldCheck}
                       label="المميزات"
                     />
+                    <Button type="button" variant="outline" size="icon" className="h-8 w-8" title="إرسال دعوة للمسؤول" onClick={() => void inviteOwner(tenant)}><Mail className="h-3.5 w-3.5" /></Button>
+                    <Button type="button" variant="outline" size="icon" className="h-8 w-8" title="إعادة تعيين كلمة مرور المسؤول" onClick={() => void resetOwnerPassword(tenant)}><KeyRound className="h-3.5 w-3.5" /></Button>
+                    {tenant.status !== "ARCHIVED" ? <Button type="button" variant="outline" size="icon" className="h-8 w-8" title="أرشفة" onClick={() => void archiveTenant(tenant)}><Archive className="h-3.5 w-3.5" /></Button> : <Button type="button" variant="destructive" size="icon" className="h-8 w-8" title="حذف نهائي" onClick={() => void deleteTenant(tenant)}><Trash2 className="h-3.5 w-3.5" /></Button>}
                   </div>
                 </td>
               </tr>
