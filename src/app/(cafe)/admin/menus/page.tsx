@@ -8,11 +8,9 @@ import { Button } from "@/components/ui/button";
 import { PermissionGate } from "@/components/access/permission-gate";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { useTenant } from "@/providers/tenant-provider";
-import { branchService } from "@/services/branch.service";
-import { cafeDataService } from "@/services/cafe-data.service";
 import { catalogApiService } from "@/services/catalog-api.service";
 import { menuApiService } from "@/services/menu-api.service";
+import { branchApiService } from "@/services/branch-api.service";
 import type { Menu } from "@/types/branch.types";
 
 type DraftItem = {
@@ -22,20 +20,23 @@ type DraftItem = {
   sortOrder: number;
 };
 export default function MenusPage() {
-  const { tenant } = useTenant();
   const [revision, setRevision] = useState(0);
   const [editing, setEditing] = useState<Menu | "new" | null>(null);
-  const [menus, setMenus] = useState<Menu[]>(() => branchService.getMenus(tenant.id));
-  const branches = branchService.getBranches(tenant.id);
-  const [products, setProducts] = useState(cafeDataService.getProducts());
+  const [menus, setMenus] = useState<Menu[]>([]);
+  const [branches, setBranches] = useState<Awaited<ReturnType<typeof branchApiService.list>>>([]);
+  const [products, setProducts] = useState<Awaited<ReturnType<typeof catalogApiService.listProducts>>>([]);
+  const [itemCounts, setItemCounts] = useState<Record<string, number>>({});
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [menuStatus, setMenuStatus] = useState<"ACTIVE" | "INACTIVE">("ACTIVE");
   const [items, setItems] = useState<DraftItem[]>([]);
   useEffect(() => {
-    void Promise.all([menuApiService.list(), catalogApiService.listProducts()])
-      .then(([remoteMenus, remoteProducts]) => { setMenus(remoteMenus); setProducts(remoteProducts); })
-      .catch(() => undefined);
+    void Promise.all([menuApiService.list(), catalogApiService.listProducts(), branchApiService.list()])
+      .then(async ([remoteMenus, remoteProducts, remoteBranches]) => {
+        const counts = await Promise.all(remoteMenus.map(async (menu) => [menu.id, (await menuApiService.listItems(menu.id)).length] as const));
+        setMenus(remoteMenus); setProducts(remoteProducts); setBranches(remoteBranches); setItemCounts(Object.fromEntries(counts));
+      })
+      .catch(() => { setMenus([]); setProducts([]); setBranches([]); setItemCounts({}); toast.error("تعذر تحميل المنيوهات من الخادم."); });
   }, [revision]);
   const usage = useMemo(
     () =>
@@ -58,9 +59,7 @@ export default function MenusPage() {
     try {
       const remoteItems = await menuApiService.listItems(menu.id);
       setItems(remoteItems.map(({ productId, price, available, sortOrder }) => ({ productId, price, available, sortOrder })));
-    } catch {
-      setItems(branchService.getMenuItems(menu.id, tenant.id).map(({ productId, price, available, sortOrder }) => ({ productId, price, available, sortOrder })));
-    }
+    } catch { setItems([]); toast.error("تعذر تحميل منتجات المنيو من الخادم."); }
   };
   const toggle = (productId: string, basePrice: number) =>
     setItems((current) =>
@@ -91,10 +90,7 @@ export default function MenusPage() {
         }
         await Promise.all(items.map((item) => menuApiService.createItem(savedMenu.id, item)));
       }
-    } catch {
-      if (editing === "new") branchService.createMenu({ name, description, status: menuStatus }, items, tenant.id);
-      else if (editing) branchService.updateMenu(editing.id, { name, description, status: menuStatus }, items, tenant.id);
-    }
+    } catch { toast.error("تعذر حفظ المنيو أو عناصرها من الخادم."); return; }
     setEditing(null);
     refresh();
     toast.success("تم حفظ المنيو");
@@ -142,7 +138,7 @@ export default function MenusPage() {
                   <tr key={menu.id} className="border-t">
                     <td className="px-4 py-3 font-bold">{menu.name}</td>
                     <td className="px-4 py-3">
-                      {branchService.getMenuItems(menu.id, tenant.id).length}
+                      {itemCounts[menu.id] ?? 0}
                     </td>
                     <td className="px-4 py-3">
                       مستخدم في {usage.get(menu.id)?.length ?? 0} فرع
@@ -173,9 +169,7 @@ export default function MenusPage() {
                               const copied = await menuApiService.create({ name: `${menu.name} - نسخة`, description: menu.description, status: menu.status });
                               const sourceItems = await menuApiService.listItems(menu.id);
                               await Promise.all(sourceItems.map(({ productId, price, available, sortOrder }) => menuApiService.createItem(copied.id, { productId, price, available, sortOrder })));
-                            } catch {
-                              branchService.duplicateMenu(menu.id, `${menu.name} - نسخة`, tenant.id);
-                            }
+                            } catch { toast.error("تعذر نسخ المنيو من الخادم."); return; }
                             refresh();
                             toast.success("تم نسخ المنيو");
                           })()}
@@ -192,15 +186,7 @@ export default function MenusPage() {
                               await menuApiService.remove(menu.id);
                               refresh();
                               toast.success("تم حذف المنيو");
-                            } catch (error) {
-                              try {
-                                branchService.removeMenu(menu.id, tenant.id);
-                                refresh();
-                                toast.success("تم حذف المنيو");
-                              } catch (fallbackError) {
-                                toast.error(fallbackError instanceof Error ? fallbackError.message : error instanceof Error ? error.message : "تعذر الحذف");
-                              }
-                            }
+                            } catch (error) { toast.error(error instanceof Error ? error.message : "تعذر حذف المنيو من الخادم."); }
                           })()}
                           aria-label="حذف"
                         >

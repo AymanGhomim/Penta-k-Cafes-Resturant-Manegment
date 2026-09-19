@@ -18,14 +18,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { cafeDataService } from "@/services/cafe-data.service";
-import { cafeOperationsService } from "@/services/cafe-operations.service";
 import { catalogApiService } from "@/services/catalog-api.service";
 import type { Category } from "@/types/category.types";
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [products, setProducts] = useState(cafeDataService.getProducts());
+  const [products, setProducts] = useState<Awaited<ReturnType<typeof catalogApiService.listProducts>>>([]);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -38,10 +36,7 @@ export default function CategoriesPage() {
       ]);
       setCategories(remoteCategories);
       setProducts(remoteProducts);
-    } catch {
-      setCategories(cafeDataService.getCategories());
-      setProducts(cafeDataService.getProducts());
-    }
+    } catch { setCategories([]); setProducts([]); toast.error("تعذر تحميل الكتالوج من الخادم."); }
   };
   useEffect(() => {
     reload();
@@ -49,22 +44,15 @@ export default function CategoriesPage() {
     window.addEventListener("tenant:changed", handler);
     return () => window.removeEventListener("tenant:changed", handler);
   }, []);
-  const update = async (next: Category[]) => {
-    setCategories(next);
-    cafeDataService.saveCategories(next);
-  };
   const count = (id: string) =>
     products.filter((product) => product.categoryId === id).length;
   const saveCategory = async () => {
     if (!name.trim()) return toast.error("اسم القسم مطلوب.");
     if (editingCategory) {
-      const nextCategory = { ...editingCategory, name: name.trim() };
       try {
         const saved = await catalogApiService.updateCategory(editingCategory.id, { name: name.trim() });
         setCategories((current) => current.map((item) => item.id === editingCategory.id ? saved : item));
-      } catch {
-        await update(categories.map((item) => item.id === editingCategory.id ? nextCategory : item));
-      }
+      } catch { toast.error("تعذر تعديل القسم من الخادم."); return; }
       setEditingCategory(null);
       setName("");
       setOpen(false);
@@ -78,22 +66,8 @@ export default function CategoriesPage() {
         sortOrder: categories.length + 1,
         isActive: true,
       });
-    } catch {
-      category = {
-        id: `cat-${Date.now()}`,
-        name: name.trim(),
-        sortOrder: categories.length + 1,
-        isActive: true,
-      };
-    }
-    await update([...categories, category]);
-    cafeOperationsService.audit({
-      module: "categories",
-      action: "CATEGORY_CREATED",
-      description: `تمت إضافة القسم ${category.name}`,
-      entityType: "category",
-      entityId: category.id,
-    });
+    } catch { toast.error("تعذر إضافة القسم من الخادم."); return; }
+    setCategories((current) => [...current, category]);
     setName("");
     setOpen(false);
     toast.success("تمت إضافة القسم.");
@@ -103,9 +77,7 @@ export default function CategoriesPage() {
     try {
       const saved = await catalogApiService.updateCategory(category.id, { isActive });
       setCategories((current) => current.map((item) => item.id === category.id ? saved : item));
-    } catch {
-      await update(categories.map((item) => item.id === category.id ? { ...item, isActive } : item));
-    }
+    } catch { toast.error("تعذر تغيير حالة القسم."); return; }
     toast.success(isActive ? "تم تفعيل القسم." : "تم تعطيل القسم.");
   };
   const deleteCategory = async () => {
@@ -116,17 +88,8 @@ export default function CategoriesPage() {
       );
     try {
       await catalogApiService.deleteCategory(deleteTarget.id);
-    } catch {
-      // Keep the local fallback behavior for demo tenants.
-    }
-    await update(categories.filter((item) => item.id !== deleteTarget.id));
-    cafeOperationsService.audit({
-      module: "categories",
-      action: "CATEGORY_DELETED",
-      description: `تم حذف القسم ${deleteTarget.name}`,
-      entityType: "category",
-      entityId: deleteTarget.id,
-    });
+    } catch { toast.error("تعذر حذف القسم من الخادم."); return; }
+    setCategories((current) => current.filter((item) => item.id !== deleteTarget.id));
     setDeleteTarget(null);
     toast.success("تم حذف القسم.");
   };

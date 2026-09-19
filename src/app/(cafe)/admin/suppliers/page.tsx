@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { cafeOperationsService } from "@/services/cafe-operations.service";
+import { operationsApiService } from "@/services/operations-api.service";
 import type { Supplier } from "@/types/cafe-operations.types";
 
 const initial = {
@@ -40,24 +40,17 @@ export default function SuppliersPage() {
   const change = (key: keyof typeof form, value: string | boolean) =>
     setForm((current) => ({ ...current, [key]: value }));
 
-  function save() {
+  async function save() {
     if (!form.name.trim()) return toast.error("اسم المورد مطلوب.");
     setSaving(true);
     try {
-      cafeOperationsService.create<Supplier>("suppliers", {
+      await operationsApiService.create<Supplier>("suppliers", {
         ...form,
         name: form.name.trim(),
         createdAt: new Date().toISOString(),
       });
-      cafeOperationsService.audit({
-        module: "suppliers",
-        action: "SUPPLIER_CREATED",
-        description: `تمت إضافة المورد ${form.name.trim()}`,
-        entityType: "supplier",
-      });
       setOpen(false);
       setForm(initial);
-      window.dispatchEvent(new Event("operations:changed"));
       toast.success("تمت إضافة المورد بنجاح.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "تعذر حفظ المورد.");

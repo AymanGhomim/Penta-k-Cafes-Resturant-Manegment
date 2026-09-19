@@ -17,10 +17,10 @@ import { cn } from "@/lib/utils";
 import { useBranch } from "@/providers/branch-provider";
 import { useCurrentEmployee } from "@/providers/current-employee-provider";
 import { useTenant } from "@/providers/tenant-provider";
-import { branchService } from "@/services/branch.service";
 import { branchApiService } from "@/services/branch-api.service";
-import { cafeDataService } from "@/services/cafe-data.service";
-import { cafeOperationsService } from "@/services/cafe-operations.service";
+import { menuApiService } from "@/services/menu-api.service";
+import { catalogApiService } from "@/services/catalog-api.service";
+import { tableApiService } from "@/services/table-api.service";
 import type { BranchSettings, BranchStatus, MenuItem } from "@/types/branch.types";
 import type { Table } from "@/types/table.types";
 
@@ -58,16 +58,18 @@ export default function BranchDetailsPage() {
   const search = useSearchParams();
   const router = useRouter();
   const { tenant } = useTenant();
-  const { refreshBranches } = useBranch();
+  const { refreshBranches, setActiveBranch } = useBranch();
   const access = useCurrentEmployee();
   const [revision, setRevision] = useState(0);
   const [remoteBranch, setRemoteBranch] = useState<Awaited<ReturnType<typeof branchApiService.find>> | null>(null);
+  const [menus, setMenus] = useState<Awaited<ReturnType<typeof menuApiService.list>>>([]);
+  const [products, setProducts] = useState<Awaited<ReturnType<typeof catalogApiService.listProducts>>>([]);
   useEffect(() => {
-    void branchApiService.find(branchId).then(setRemoteBranch).catch(() => undefined);
+    void Promise.all([branchApiService.find(branchId), menuApiService.list(), catalogApiService.listProducts(), tableApiService.list(branchId)])
+      .then(([nextBranch, nextMenus, nextProducts, nextTables]) => { setRemoteBranch(nextBranch); setMenus(nextMenus); setProducts(nextProducts); setTablesList(nextTables); })
+      .catch(() => { setRemoteBranch(null); setMenus([]); setProducts([]); setTablesList([]); toast.error("تعذر تحميل تفاصيل الفرع من الخادم."); });
   }, [branchId]);
-  const branch = remoteBranch ?? branchService.getBranch(branchId, tenant.id);
-  const menus = branchService.getMenus(tenant.id);
-  const products = cafeDataService.getProducts();
+  const branch = remoteBranch;
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [editing, setEditing] = useState(
     search.get("edit") === "1" && access.hasPermission("branches.manage"),
@@ -98,26 +100,24 @@ export default function BranchDetailsPage() {
     currentMenu?.status ?? "ACTIVE",
   );
   const [menuItems, setMenuItems] = useState<MenuDraftItem[]>(
-    currentMenu
-      ? branchService.getMenuItems(currentMenu.id, tenant.id).map(
-          ({ productId, price, available, sortOrder }) => ({
-            productId,
-            price,
-            available,
-            sortOrder,
-          }),
-        )
-      : [],
+    [],
   );
-  const [tablesList, setTablesList] = useState<Table[]>(
-    cafeDataService.getTablesForBranch(branchId, tenant.id),
-  );
+  const [tablesList, setTablesList] = useState<Table[]>([]);
   void revision;
+  useEffect(() => {
+    if (!branch) return;
+    setForm({ name: branch.name, code: branch.code ?? "", phone: branch.phone ?? "", email: branch.email ?? "", address: branch.address ?? "", status: branch.status, menuId: branch.menuId ?? "" });
+    setOperations({ dineInEnabled: branch.settings?.dineInEnabled ?? true, takeawayEnabled: branch.settings?.takeawayEnabled ?? true, deliveryEnabled: branch.settings?.deliveryEnabled ?? true, preparationTime: branch.settings?.preparationTime ?? 20, openingHours: branch.settings?.openingHours ?? "09:00 - 23:00" });
+  }, [branch]);
 
   const menuItemsByProduct = useMemo(
     () => new Map(menuItems.map((item) => [item.productId, item])),
     [menuItems],
   );
+  useEffect(() => {
+    if (!form.menuId) return setMenuItems([]);
+    void menuApiService.listItems(form.menuId).then((remoteItems) => setMenuItems(remoteItems.map(({ productId, price, available, sortOrder }) => ({ productId, price, available, sortOrder })))).catch(() => setMenuItems([]));
+  }, [form.menuId]);
 
   if (!branch) {
     return (
@@ -144,18 +144,7 @@ export default function BranchDetailsPage() {
     setMenuName(menu?.name ?? "");
     setMenuDescription(menu?.description ?? "");
     setMenuStatus(menu?.status ?? "ACTIVE");
-    setMenuItems(
-      menu
-        ? branchService.getMenuItems(menu.id, tenant.id).map(
-            ({ productId, price, available, sortOrder }) => ({
-              productId,
-              price,
-              available,
-              sortOrder,
-            }),
-          )
-        : [],
-    );
+    void (menu ? menuApiService.listItems(menu.id).then((remoteItems) => setMenuItems(remoteItems.map(({ productId, price, available, sortOrder }) => ({ productId, price, available, sortOrder })))).catch(() => setMenuItems([])) : Promise.resolve(setMenuItems([])));
   }
 
   async function saveOverview() {
@@ -169,17 +158,17 @@ export default function BranchDetailsPage() {
         email: form.email.trim(),
         address: form.address.trim(),
         status: form.status,
+        menuId: form.menuId || undefined,
+        settings: operations,
       });
       setRemoteBranch(saved);
-    } catch {
-      branchService.updateBranch(currentBranch.id, { name: form.name.trim(), code: form.code.trim(), phone: form.phone.trim(), email: form.email.trim(), address: form.address.trim(), status: form.status, menuId: form.menuId || undefined }, tenant.id);
-    }
+    } catch { toast.error("تعذر حفظ بيانات الفرع من الخادم."); return; }
     refresh();
     setEditing(false);
     toast.success("تم حفظ كل البيانات الأساسية للفرع.");
   }
 
-  function saveMenu() {
+  async function saveMenu() {
     if (!access.hasPermission("branches.manage")) {
       return toast.error("ليس لديك صلاحية تعديل إعدادات الفرع.");
     }
@@ -187,27 +176,21 @@ export default function BranchDetailsPage() {
       return toast.error("ليس لديك صلاحية تعديل المنيو.");
     }
     if (!form.menuId) {
-      branchService.updateBranch(currentBranch.id, { menuId: undefined }, tenant.id);
-      refresh();
-      return toast.success("تم إلغاء ربط المنيو بهذا الفرع.");
+      try { await branchApiService.update(currentBranch.id, { menuId: undefined }); refresh(); return toast.success("تم إلغاء ربط المنيو بهذا الفرع."); } catch { return toast.error("تعذر إلغاء ربط المنيو."); }
     }
     if (!menuName.trim()) return toast.error("اسم المنيو مطلوب.");
-    branchService.updateMenu(
-      form.menuId,
-      {
-        name: menuName.trim(),
-        description: menuDescription.trim(),
-        status: menuStatus,
-      },
-      menuItems,
-      tenant.id,
-    );
-    branchService.updateBranch(currentBranch.id, { menuId: form.menuId }, tenant.id);
+    try {
+      await menuApiService.update(form.menuId, { name: menuName.trim(), description: menuDescription.trim(), status: menuStatus });
+      const existingItems = await menuApiService.listItems(form.menuId);
+      await Promise.all(existingItems.map((item) => menuApiService.removeItem(form.menuId, item.id)));
+      await Promise.all(menuItems.map((item) => menuApiService.createItem(form.menuId, item)));
+      await branchApiService.update(currentBranch.id, { menuId: form.menuId });
+    } catch { return toast.error("تعذر حفظ منيو الفرع من الخادم."); }
     refresh();
     toast.success("تم حفظ منيو الفرع والأسعار والتوفر.");
   }
 
-  function saveOperations() {
+  async function saveOperations() {
     if (!access.hasPermission("branches.manage")) {
       return toast.error("ليس لديك صلاحية تعديل إعدادات الفرع.");
     }
@@ -216,19 +199,25 @@ export default function BranchDetailsPage() {
       operations.preparationTime < 1
     )
       return toast.error("مدة التحضير يجب أن تكون دقيقة واحدة على الأقل.");
-    branchService.updateBranch(currentBranch.id, { settings: operations }, tenant.id);
+    try { await branchApiService.update(currentBranch.id, { settings: operations }); } catch { return toast.error("تعذر حفظ إعدادات تشغيل الفرع."); }
     refresh();
     toast.success("تم حفظ إعدادات تشغيل الفرع.");
   }
 
-  function persistTables(next: Table[]) {
-    cafeDataService.saveTablesForBranch(currentBranch.id, next, tenant.id);
-    setTablesList(next);
-    window.dispatchEvent(new Event("tables:changed"));
+  async function persistTables(next: Table[]) {
+    const previous = tablesList;
+    try {
+      const removed = previous.filter((item) => !next.some((candidate) => candidate.id === item.id));
+      const added = next.filter((item) => !previous.some((candidate) => candidate.id === item.id));
+      await Promise.all(removed.map((item) => tableApiService.remove(item.id)));
+      const created = await Promise.all(added.map((item) => tableApiService.create(currentBranch.id, item.number)));
+      await Promise.all(next.filter((item) => previous.some((candidate) => candidate.id === item.id)).map((item) => tableApiService.update(item.id, { number: item.number, isActive: item.isActive })));
+      setTablesList([...next.filter((item) => previous.some((candidate) => candidate.id === item.id)), ...created]);
+    } catch { toast.error("تعذر تحديث طاولات الفرع من الخادم."); }
   }
 
   function openModule(path: string) {
-    branchService.setActiveBranch(currentBranch.id, tenant.id);
+    setActiveBranch(currentBranch.id);
     refreshBranches();
     router.push(path);
   }
@@ -353,7 +342,7 @@ export default function BranchDetailsPage() {
         ) : null}
       </section>
 
-      <ConfirmDialog open={Boolean(deleteTable)} onOpenChange={(value) => !value && setDeleteTable(null)} title="حذف الطاولة؟" description="سيتم حذف الطاولة من هذا الفرع فقط." confirmLabel="حذف" onConfirm={() => { if (!deleteTable) return; persistTables(tablesList.filter((table) => table.id !== deleteTable.id)); cafeOperationsService.audit({ module: "tables", action: "TABLE_DELETED", description: `تم حذف الطاولة ${deleteTable.number} من ${currentBranch.name}`, entityType: "table", entityId: deleteTable.id }); setDeleteTable(null); toast.success("تم حذف الطاولة."); }} />
+      <ConfirmDialog open={Boolean(deleteTable)} onOpenChange={(value) => !value && setDeleteTable(null)} title="حذف الطاولة؟" description="سيتم حذف الطاولة من هذا الفرع فقط." confirmLabel="حذف" onConfirm={async () => { if (!deleteTable) return; await persistTables(tablesList.filter((table) => table.id !== deleteTable.id)); setDeleteTable(null); toast.success("تم حذف الطاولة."); }} />
     </AdminShell>
   );
 }

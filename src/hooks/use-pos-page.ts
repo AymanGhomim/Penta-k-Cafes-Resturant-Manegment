@@ -6,8 +6,9 @@ import { toast } from "sonner";
 import { formatMoney } from "@/lib/money";
 import { useBranch } from "@/providers/branch-provider";
 import { useTenant } from "@/providers/tenant-provider";
-import { cafeDataService } from "@/services/cafe-data.service";
-import { cafeOperationsService } from "@/services/cafe-operations.service";
+import { catalogApiService } from "@/services/catalog-api.service";
+import { tableApiService } from "@/services/table-api.service";
+import { customerLoyaltyApiService, type RemoteCustomer } from "@/services/customer-loyalty-api.service";
 import { checkoutService, type CheckoutInput } from "@/services/checkout.service";
 import { modifierService } from "@/services/modifier.service";
 import { modifierApiService } from "@/services/modifier-api.service";
@@ -15,7 +16,6 @@ import { deliveryZoneApiService } from "@/services/delivery-zone-api.service";
 import { useCartStore } from "@/store/cart.store";
 import { useOrdersStore } from "@/store/orders.store";
 import type {
-  Customer,
   DeliveryZone,
   ModifierGroup,
 } from "@/types/cafe-operations.types";
@@ -52,8 +52,8 @@ export function usePosPage() {
   const decrease = useCartStore((state) => state.decreaseQuantity);
   const updateNotes = useCartStore((state) => state.updateNotes);
   const clearCart = useCartStore((state) => state.clearCart);
-  const tables = cafeDataService.getTables();
-  const customers = cafeOperationsService.get<Customer>("customers");
+  const [tables, setTables] = useState<Awaited<ReturnType<typeof tableApiService.list>>>([]);
+  const [customers, setCustomers] = useState<RemoteCustomer[]>([]);
   const [zones, setZones] = useState<DeliveryZone[]>([]);
 
   function resetDraft() {
@@ -68,7 +68,13 @@ export function usePosPage() {
   }
 
   useEffect(() => {
-    const reload = () => setProducts(cafeDataService.getBranchProducts());
+    const reload = () => {
+      void Promise.all([
+        catalogApiService.listProducts(),
+        branch?.id ? tableApiService.list(branch.id) : Promise.resolve([]),
+        customerLoyaltyApiService.listCustomers(),
+      ]).then(([nextProducts, nextTables, nextCustomers]) => { setProducts(nextProducts); setTables(nextTables); setCustomers(nextCustomers); }).catch(() => { setProducts([]); setTables([]); setCustomers([]); toast.error("تعذر تحميل بيانات نقطة البيع من الخادم."); });
+    };
     const reset = () => {
       reload();
       clearCart();
@@ -83,7 +89,7 @@ export function usePosPage() {
       window.removeEventListener("tenant:changed", reset);
       window.removeEventListener("branch:changed", reset);
     };
-  }, [clearCart]);
+  }, [branch?.id, clearCart]);
 
   const visibleProducts = useMemo(
     () =>

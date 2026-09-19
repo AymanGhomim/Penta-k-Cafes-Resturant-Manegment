@@ -3,8 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { hasAllPermissions, hasAnyPermission, hasPermission } from "@/lib/access-control";
 import { useTenant } from "@/providers/tenant-provider";
-import { employeeService } from "@/services/employee.service";
-import { roleService } from "@/services/role.service";
+import { employeeApiService, type BackendRole } from "@/services/employee-api.service";
 import { useAuthStore } from "@/store/auth.store";
 import type { CafeEmployee, CafeRole, PermissionKey } from "@/types/access-control.types";
 
@@ -24,9 +23,12 @@ export function CurrentEmployeeProvider({ children }: { children: React.ReactNod
   const { tenant } = useTenant();
   const user = useAuthStore((state) => state.user);
   const [revision, setRevision] = useState(0);
+  const [employees, setEmployees] = useState<Awaited<ReturnType<typeof employeeApiService.list>>>([]);
+  const [roles, setRoles] = useState<BackendRole[]>([]);
   const refresh = () => setRevision((value) => value + 1);
 
   useEffect(() => {
+    void Promise.all([employeeApiService.list(), employeeApiService.roles()]).then(([nextEmployees, nextRoles]) => { setEmployees(nextEmployees); setRoles(nextRoles); }).catch(() => { setEmployees([]); setRoles([]); });
     const handleChange = () => refresh();
     window.addEventListener("access-control:changed", handleChange);
     window.addEventListener("tenant:changed", handleChange);
@@ -38,16 +40,13 @@ export function CurrentEmployeeProvider({ children }: { children: React.ReactNod
 
   const value = useMemo(() => {
     void revision;
-    const employees = employeeService.getEmployees(tenant.id);
-    const employee = user?.tenantId === tenant.id && user.employeeId
-      ? employeeService.getEmployeeById(user.employeeId, tenant.id) ?? null
-      : user?.tenantId === tenant.id || user?.role === "platform_super_admin"
-        ? employees.find((item) => roleService.getRoleById(item.roleId, tenant.id)?.code === "OWNER") ?? null
-        : null;
-    const role = employee ? roleService.getRoleById(employee.roleId, tenant.id) ?? null : null;
+    const employee = user?.employeeId ? employees.find((item) => item.id === user.employeeId) ?? null : employees.find((item) => item.role === "OWNER") ?? null;
+    const roleRecord = employee ? roles.find((item) => item.code === employee.role) : roles.find((item) => item.code === "OWNER");
+    const role = roleRecord ? { id: roleRecord.code, tenantId: tenant.id, code: roleRecord.code as CafeRole["code"], name: roleRecord.name, systemRole: true, permissions: roleRecord.permissions as PermissionKey[], createdAt: new Date(0).toISOString(), updatedAt: new Date().toISOString() } : null;
+    const mappedEmployee = employee ? { id: employee.id, tenantId: employee.tenantId, name: employee.name, phone: "", email: employee.email, roleId: employee.role, branchAccess: "ALL" as const, branchIds: [], status: employee.status, createdAt: employee.createdAt, updatedAt: employee.updatedAt } : null;
     const permissions = role?.permissions ?? [];
     return {
-      employee,
+      employee: mappedEmployee,
       role,
       permissions,
       hasPermission: (permission: PermissionKey) => hasPermission(permissions, permission),
@@ -55,7 +54,7 @@ export function CurrentEmployeeProvider({ children }: { children: React.ReactNod
       hasAllPermissions: (required: PermissionKey[]) => hasAllPermissions(permissions, required),
       refresh,
     };
-  }, [revision, tenant.id, user]);
+  }, [employees, revision, roles, tenant.id, user]);
 
   return <CurrentEmployeeContext.Provider value={value}>{children}</CurrentEmployeeContext.Provider>;
 }

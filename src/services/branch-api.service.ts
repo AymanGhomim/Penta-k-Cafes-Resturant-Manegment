@@ -28,10 +28,12 @@ export const branchApiService = {
     const response = await httpClient.get<BackendBranch>(`${API_ENDPOINTS.cafe.branches}/${id}`);
     return mapBranch(response.data);
   },
-  async update(id: string, input: Partial<Pick<Branch, "name" | "code" | "phone" | "email" | "address" | "status">>) {
+  async update(id: string, input: Partial<Pick<Branch, "name" | "code" | "phone" | "email" | "address" | "status" | "menuId" | "settings">>) {
     const response = await httpClient.patch<BackendBranch>(`${API_ENDPOINTS.cafe.branches}/${id}`, {
       ...input,
       isActive: input.status === undefined ? undefined : input.status !== "INACTIVE",
+      menuId: input.menuId,
+      settings: input.settings,
     });
     return mapBranch(response.data);
   },

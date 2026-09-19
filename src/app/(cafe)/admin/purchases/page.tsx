@@ -18,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { formatMoney } from "@/lib/money";
 import { useTenant } from "@/providers/tenant-provider";
-import { cafeOperationsService } from "@/services/cafe-operations.service";
+import { operationsApiService } from "@/services/operations-api.service";
 import { inventoryApiService } from "@/services/inventory-api.service";
 import type {
   InventoryItem,
@@ -46,7 +46,8 @@ export default function PurchasesPage() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(blank);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const reload = () => { void Promise.all([inventoryApiService.list<Purchase>("purchases"), inventoryApiService.list<InventoryItem>("inventory")]).then(([nextPurchases, nextInventory]) => { setPurchases(nextPurchases); setInventory(nextInventory.filter((item) => item.active)); }).catch(() => { setPurchases([]); setInventory([]); }); };
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const reload = () => { void Promise.all([inventoryApiService.list<Purchase>("purchases"), inventoryApiService.list<InventoryItem>("inventory"), operationsApiService.list<Supplier>("suppliers")]).then(([nextPurchases, nextInventory, nextSuppliers]) => { setPurchases(nextPurchases); setInventory(nextInventory.filter((item) => item.active)); setSuppliers(nextSuppliers.filter((item) => item.active)); }).catch(() => { setPurchases([]); setInventory([]); setSuppliers([]); }); };
   useEffect(() => {
     reload();
     const handler = () => {
@@ -61,9 +62,6 @@ export default function PurchasesPage() {
       window.removeEventListener("branch:changed", handler);
     };
   }, []);
-  const suppliers = cafeOperationsService
-    .get<Supplier>("suppliers")
-    .filter((item) => item.active);
   const supplierName = (id: string) =>
     suppliers.find((item) => item.id === id)?.name ?? "مورد غير معروف";
   const pagination = usePagination(purchases);

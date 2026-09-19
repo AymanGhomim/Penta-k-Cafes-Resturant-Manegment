@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Eye, MapPin, Pencil, Plus, Power } from "lucide-react";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/admin/admin-shell";
@@ -10,8 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useBranch } from "@/providers/branch-provider";
-import { branchService, getEffectiveBranchLimit } from "@/services/branch.service";
+import { getEffectiveBranchLimit } from "@/services/branch.service";
 import { branchApiService } from "@/services/branch-api.service";
+import { menuApiService } from "@/services/menu-api.service";
 import { useTenant } from "@/providers/tenant-provider";
 
 export default function BranchesPage() {
@@ -19,14 +20,13 @@ export default function BranchesPage() {
   const { branches, refreshBranches } = useBranch();
   const limit = getEffectiveBranchLimit(tenant);
   const canAdd = branches.length < limit;
-  const menus = branchService.getMenus(tenant.id);
+  const [menus, setMenus] = useState<Array<{ id: string; name: string }>>([]);
+  useEffect(() => { void menuApiService.list().then(setMenus).catch(() => setMenus([])); }, []);
   const menuNames = useMemo(() => new Map(menus.map((menu) => [menu.id, menu.name])), [menus]);
   const toggle = async (id: string, active: boolean) => {
     try {
       await branchApiService.updateStatus(id, active);
-    } catch {
-      branchService.updateBranch(id, { status: active ? "ACTIVE" : "INACTIVE" }, tenant.id);
-    }
+    } catch { toast.error("تعذر تغيير حالة الفرع من الخادم."); return; }
     refreshBranches();
     toast.success(active ? "تم تفعيل الفرع" : "تم تعطيل الفرع");
   };

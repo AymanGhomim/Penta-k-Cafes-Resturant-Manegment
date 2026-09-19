@@ -12,8 +12,6 @@ import { Button } from "@/components/ui/button";
 import { PermissionGate } from "@/components/access/permission-gate";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { cafeDataService } from "@/services/cafe-data.service";
-import { cafeOperationsService } from "@/services/cafe-operations.service";
 import { tableApiService } from "@/services/table-api.service";
 import { branchService } from "@/services/branch.service";
 import { useTenant } from "@/providers/tenant-provider";
@@ -24,7 +22,7 @@ export default function TablesPage() {
   const [query, setQuery] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<Table | null>(null);
   const { tenant } = useTenant();
-  const reload = () => { const branchId = branchService.getActiveBranchId(tenant.id); if (!branchId) return setTables([]); void tableApiService.list(branchId).then(setTables).catch(() => setTables(cafeDataService.getTables())); };
+  const reload = () => { const branchId = branchService.getActiveBranchId(tenant.id); if (!branchId) return setTables([]); void tableApiService.list(branchId).then(setTables).catch(() => { setTables([]); toast.error("تعذر تحميل طاولات الفرع من الخادم."); }); };
   useEffect(() => {
     reload();
     const handler = () => reload();
@@ -40,21 +38,10 @@ export default function TablesPage() {
       tables.filter((table) => !query || String(table.number).includes(query)),
     [query, tables],
   );
-  const save = (next: Table[]) => {
-    setTables(next);
-    cafeDataService.saveTables(next);
-  };
   const deleteTable = async () => {
     if (!deleteTarget) return;
     try { await tableApiService.remove(deleteTarget.id); setTables((current) => current.filter((item) => item.id !== deleteTarget.id)); }
-    catch { save(tables.filter((item) => item.id !== deleteTarget.id)); }
-    cafeOperationsService.audit({
-      module: "tables",
-      action: "TABLE_DELETED",
-      description: `تم حذف الطاولة ${deleteTarget.number}`,
-      entityType: "table",
-      entityId: deleteTarget.id,
-    });
+    catch { toast.error("تعذر حذف الطاولة من الخادم."); return; }
     setDeleteTarget(null);
     toast.success("تم حذف الطاولة.");
   };
@@ -80,7 +67,7 @@ export default function TablesPage() {
                 tables.reduce((max, item) => Math.max(max, item.number), 0) + 1;
               const branchId = branchService.getActiveBranchId(tenant.id);
               if (!branchId) return toast.error("لا يوجد فرع نشط.");
-              void tableApiService.create(branchId, number).then((table) => setTables((current) => [...current, table])).catch(() => save([...tables, { id: `tbl-${Date.now()}`, number, qrCode: `qr-table-${number}`, isActive: true }]));
+              void tableApiService.create(branchId, number).then((table) => setTables((current) => [...current, table])).catch(() => toast.error("تعذر إضافة الطاولة من الخادم."));
               toast.success("تمت إضافة الطاولة");
             }}
           >
@@ -149,7 +136,7 @@ export default function TablesPage() {
                     type="button"
                     variant="outline"
                     className="h-9 rounded-lg text-xs"
-                    onClick={() => void tableApiService.update(table.id, { isActive: !table.isActive }).then((updated) => setTables((current) => current.map((item) => item.id === table.id ? updated : item))).catch(() => save(tables.map((item) => item.id === table.id ? { ...item, isActive: !item.isActive } : item)))}
+                    onClick={() => void tableApiService.update(table.id, { isActive: !table.isActive }).then((updated) => setTables((current) => current.map((item) => item.id === table.id ? updated : item))).catch(() => toast.error("تعذر تغيير حالة الطاولة."))}
                   >
                     {table.isActive ? "إيقاف" : "تفعيل"}
                   </Button>

@@ -12,21 +12,20 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { cafeOperationsService } from "@/services/cafe-operations.service";
+import { inventoryApiService } from "@/services/inventory-api.service";
 import { useBranch } from "@/providers/branch-provider";
 import type { InventoryItem, StockCount } from "@/types/cafe-operations.types";
 
 export default function StockCountPage() {
   const { branch } = useBranch();
-  const inventory = cafeOperationsService
-    .get<InventoryItem>("inventory")
-    .filter((item) => item.active);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [actual, setActual] = useState<Record<string, string>>({});
   useEffect(() => {
     setOpen(false);
     setActual({});
+    void inventoryApiService.list<InventoryItem>("inventory").then((items) => setInventory(items.filter((item) => item.active))).catch(() => setInventory([]));
   }, [branch?.id]);
   function start() {
     setActual(
@@ -36,7 +35,7 @@ export default function StockCountPage() {
     );
     setOpen(true);
   }
-  function confirm() {
+  async function confirm() {
     if (!inventory.length) return;
     const items = inventory.map((item) => ({
       inventoryItemId: item.id,
@@ -52,13 +51,13 @@ export default function StockCountPage() {
       return toast.error("أدخل كمية فعلية صحيحة لكل عنصر.");
     setSaving(true);
     try {
-      const count = cafeOperationsService.create<StockCount>("stockCounts", {
+      await inventoryApiService.create<StockCount>("stockCounts", {
         number: `COUNT-${Date.now()}`,
         items,
         status: "DRAFT",
         createdAt: new Date().toISOString(),
       });
-      cafeOperationsService.confirmStockCount(count.id);
+      await Promise.all(items.map((item) => inventoryApiService.update<InventoryItem>(item.inventoryItemId, { quantity: item.actualQuantity, updatedAt: new Date().toISOString() })));
       setOpen(false);
       window.dispatchEvent(new Event("operations:changed"));
       toast.success("تم تأكيد الجرد وتحديث مخزون الفرع.");

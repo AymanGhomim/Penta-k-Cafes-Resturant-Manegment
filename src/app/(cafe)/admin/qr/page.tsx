@@ -13,7 +13,7 @@ import { customerRouteHref } from "@/constants/customer-route";
 import { getContrastForeground, normalizeTenantBranding } from "@/lib/tenant-branding";
 import { useBranch } from "@/providers/branch-provider";
 import { useTenant } from "@/providers/tenant-provider";
-import { cafeDataService } from "@/services/cafe-data.service";
+import { tableApiService } from "@/services/table-api.service";
 import type { Table } from "@/types/table.types";
 import { cashierQrService, type CashierQrConfig } from "@/services/cashier-qr.service";
 import { toast } from "sonner";
@@ -50,20 +50,12 @@ export default function QrManagementPage() {
   });
 
   useEffect(() => {
-    const reload = () =>
-      setAllTables(
-        branch
-          ? cafeDataService.getTablesForBranch(branch.id, tenant.id)
-          : [],
-      );
-    reload();
+    const reload = () => { if (!branch) return setAllTables([]); void tableApiService.list(branch.id).then(setAllTables).catch(() => { setAllTables([]); toast.error("تعذر تحميل طاولات الفرع من الخادم."); }); };
     window.addEventListener("tenant:changed", reload);
     window.addEventListener("branch:changed", reload);
-    window.addEventListener("tables:changed", reload);
     return () => {
       window.removeEventListener("tenant:changed", reload);
       window.removeEventListener("branch:changed", reload);
-      window.removeEventListener("tables:changed", reload);
     };
   }, [branch, tenant.id]);
 

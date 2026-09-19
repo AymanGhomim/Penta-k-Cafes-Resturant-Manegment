@@ -16,7 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { formatMoney } from "@/lib/money";
 import { useTenant } from "@/providers/tenant-provider";
-import { cafeDataService } from "@/services/cafe-data.service";
+import { catalogApiService } from "@/services/catalog-api.service";
 import { inventoryApiService } from "@/services/inventory-api.service";
 import type { InventoryItem, Recipe } from "@/types/cafe-operations.types";
 import type { Product } from "@/types/product.types";
@@ -31,7 +31,7 @@ export default function RecipesPage() {
   const [form, setForm] = useState(empty);
   const reload = () => {
     void inventoryApiService.list<Recipe>("recipes").then(setRecipes).catch(() => setRecipes([]));
-    setProducts(cafeDataService.getProducts());
+    void catalogApiService.listProducts().then(setProducts).catch(() => setProducts([]));
     void inventoryApiService.list<InventoryItem>("inventory").then((items) => setInventory(items.filter((item) => item.active))).catch(() => setInventory([]));
   };
   useEffect(() => {

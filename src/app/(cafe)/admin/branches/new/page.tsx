@@ -7,7 +7,7 @@ import { AdminShell } from "@/components/admin/admin-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { branchService, canCreateBranch } from "@/services/branch.service";
+import { canCreateBranch } from "@/services/branch.service";
 import { useTenant } from "@/providers/tenant-provider";
 import { useBranch } from "@/providers/branch-provider";
 import { branchApiService } from "@/services/branch-api.service";
@@ -32,14 +32,6 @@ export default function NewBranchPage() {
     if (!form.address.trim()) return toast.error("عنوان الفرع مطلوب");
     try {
       const branch = await branchApiService.create(form);
-      branchService.createBranch({
-        name: branch.name,
-        code: branch.code,
-        phone: branch.phone,
-        email: branch.email,
-        address: branch.address,
-        status: branch.status,
-      }, tenant.id);
       refreshBranches();
       toast.success("تم إنشاء الفرع بنجاح");
       router.push(`/admin/branches/${branch.id}`);

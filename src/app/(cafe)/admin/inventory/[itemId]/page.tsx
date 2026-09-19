@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { ArrowLeft, Boxes } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import { AdminShell } from "@/components/admin/admin-shell";
@@ -11,8 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatMoney } from "@/lib/money";
 import { useTenant } from "@/providers/tenant-provider";
-import { cafeDataService } from "@/services/cafe-data.service";
-import { cafeOperationsService } from "@/services/cafe-operations.service";
+import { catalogApiService } from "@/services/catalog-api.service";
+import { inventoryApiService } from "@/services/inventory-api.service";
 import type {
   InventoryItem,
   Recipe,
@@ -31,9 +32,30 @@ const movementLabels: Record<StockMovement["type"], string> = {
 export default function InventoryItemPage() {
   const { itemId } = useParams<{ itemId: string }>();
   const { tenant } = useTenant();
-  const item = cafeOperationsService
-    .get<InventoryItem>("inventory")
-    .find((entry) => entry.id === itemId);
+  const [item, setItem] = useState<InventoryItem | null>(null);
+  const [movements, setMovements] = useState<StockMovement[]>([]);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [products, setProducts] = useState<Awaited<ReturnType<typeof catalogApiService.listProducts>>>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    void Promise.all([
+      inventoryApiService.list<InventoryItem>("inventory"),
+      inventoryApiService.list<StockMovement>("stockMovements"),
+      inventoryApiService.list<Recipe>("recipes"),
+      catalogApiService.listProducts(),
+    ]).then(([inventory, nextMovements, nextRecipes, nextProducts]) => {
+      if (!active) return;
+      setItem(inventory.find((entry) => entry.id === itemId) ?? null);
+      setMovements(nextMovements.filter((entry) => entry.inventoryItemId === itemId));
+      setRecipes(nextRecipes.filter((recipe) => recipe.ingredients.some((ingredient) => ingredient.inventoryItemId === itemId)));
+      setProducts(nextProducts);
+    }).catch(() => { if (active) { setItem(null); setMovements([]); setRecipes([]); setProducts([]); } }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [itemId]);
+
+  if (loading) return <AdminShell><section dir="rtl" className="p-8 text-center text-muted-foreground">جارٍ تحميل بيانات العنصر من الخادم...</section></AdminShell>;
 
   if (!item) {
     return (
@@ -48,17 +70,6 @@ export default function InventoryItemPage() {
     );
   }
 
-  const movements = cafeOperationsService
-    .get<StockMovement>("stockMovements")
-    .filter((movement) => movement.inventoryItemId === item.id);
-  const recipes = cafeOperationsService
-    .get<Recipe>("recipes")
-    .filter((recipe) =>
-      recipe.ingredients.some(
-        (ingredient) => ingredient.inventoryItemId === item.id,
-      ),
-    );
-  const products = cafeDataService.getProducts();
   const history = [...movements].slice(-8).map((movement) => ({
     date: new Date(movement.createdAt).toLocaleDateString("ar-EG", {
       day: "numeric",
