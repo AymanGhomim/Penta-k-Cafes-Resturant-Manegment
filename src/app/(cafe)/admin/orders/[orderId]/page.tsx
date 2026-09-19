@@ -31,8 +31,9 @@ import { useTenant } from "@/providers/tenant-provider";
 import { financeService } from "@/services/finance.service";
 import {
   canTransitionOrderStatus,
-  orderService,
 } from "@/services/order.service";
+import { orderApiService } from "@/services/order-api.service";
+import { branchService } from "@/services/branch.service";
 import type { Order, OrderStatus } from "@/types/order.types";
 import { orderStatusPresentation } from "@shared/presentation/order";
 import { buildOrderReceiptData } from "@shared/presentation/order-receipt";
@@ -52,10 +53,7 @@ export default function OrderDetailsPage() {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [reason, setReason] = useState("");
-  const reload = useCallback(
-    () => setOrder(orderService.getById(params.orderId)),
-    [params.orderId],
-  );
+  const reload = useCallback(() => { void orderApiService.list(branchService.getActiveBranchId() ?? undefined).then((orders) => setOrder(orders.find((item) => item.id === params.orderId))).catch(() => setOrder(undefined)); }, [params.orderId]);
   useEffect(() => {
     reload();
     window.addEventListener("orders:changed", reload);
@@ -101,17 +99,15 @@ export default function OrderDetailsPage() {
     const target = nextStatus[order!.status];
     if (!target) return;
     try {
-      orderService.transition(order!.id, target);
-      reload();
-      toast.success("تم تحديث حالة الطلب.");
+      void orderApiService.updateStatus(order!.id, target).then(() => { reload(); toast.success("تم تحديث حالة الطلب."); });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "تعذر التحديث.");
     }
   }
 
-  function cancel() {
+  async function cancel() {
     try {
-      orderService.cancel(order!.id, reason);
+      await orderApiService.updateStatus(order!.id, "CANCELLED");
       setCancelOpen(false);
       setConfirmCancel(false);
       reload();

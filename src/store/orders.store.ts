@@ -37,7 +37,7 @@ export const useOrdersStore = create<OrdersState>((set, get) => ({
   tenantId: "",
   loadForTenant: (tenantId = cafeDataService.tenantId()) => {
     const branchId = branchService.getActiveBranchId(tenantId) ?? undefined;
-    void orderApiService.list(branchId).then((orders) => set({ tenantId, orders })).catch(() => set({ tenantId, orders: cafeDataService.getOrders().filter((order) => order.tenantId === tenantId) }));
+    void orderApiService.list(branchId).then((orders) => set({ tenantId, orders })).catch(() => set({ tenantId, orders: [] }));
   },
   setOrders: (orders, tenantId = cafeDataService.tenantId()) => set({ tenantId, orders }),
   addOrder: (input) => {

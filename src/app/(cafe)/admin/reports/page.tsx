@@ -94,7 +94,7 @@ export default function ReportsPage() {
   const money = (v: number) => formatMoney(v, tenant.settings.currencySymbol);
   function exportCsv() {
     try {
-      const rows = sales.orders.map((o) => ({
+      const rows = remoteSales.orders.map((o) => ({
         orderNumber: o.orderNumber,
         date: o.createdAt,
         branch: o.branchId,
