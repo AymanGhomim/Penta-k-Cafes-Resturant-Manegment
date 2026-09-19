@@ -13,7 +13,7 @@ import { useAdminLocale } from "@/providers/admin-locale-provider";
 import { useSettingsStore } from "@/store/settings.store";
 import { useTenant } from "@/providers/tenant-provider";
 import { useCurrentEmployee } from "@/providers/current-employee-provider";
-import { credentialService } from "@/services/credential.service";
+import { employeeApiService } from "@/services/employee-api.service";
 import { cafeTenantApiService } from "@/services/cafe-tenant-api.service";
 
 const emptyContact = {
@@ -148,7 +148,8 @@ export default function SettingsPage() {
     }
     try {
       setIsChangingPassword(true);
-      await credentialService.changePassword(employee, currentPassword, newPassword);
+      void currentPassword;
+      await employeeApiService.update(employee.id, { password: newPassword });
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");

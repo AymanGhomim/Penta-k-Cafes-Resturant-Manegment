@@ -25,7 +25,6 @@ import {
   normalizePlanCode,
 } from "@/config/plans.config";
 import { normalizeTenantBranding } from "@/lib/tenant-branding";
-import { credentialService } from "@/services/credential.service";
 import type { FeatureKey } from "@/types/platform.types";
 import type { Tenant, TenantBranding } from "@/types/tenant.types";
 import { platformTenantsApiService } from "@/services/platform-tenants-api.service";
@@ -41,9 +40,6 @@ const steps = [
 
 export function TenantForm({ tenant }: { tenant?: Tenant }) {
   const router = useRouter();
-  const existingOwner = tenant
-    ? credentialService.getOwner(tenant.id)
-    : undefined;
   const [step, setStep] = useState(0);
   const [remoteTenants, setRemoteTenants] = useState<{ id: string; slug: string }[]>([]);
   const [submitted, setSubmitted] = useState(false);
@@ -73,9 +69,7 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
       ownerName: tenant?.owner?.name || "",
       ownerEmail: tenant?.owner?.email || "",
       ownerPhone: tenant?.owner?.phone || "",
-      ownerUsername: existingOwner
-        ? credentialService.getLogin(existingOwner)
-        : "",
+      ownerUsername: tenant?.owner?.username || tenant?.owner?.email || "",
       ownerPassword: "",
       ownerPasswordConfirm: "",
       logo: tenant?.branding.logo || baseTenantBranding.logo,
@@ -216,13 +210,6 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
             ownerPassword: draft.ownerPassword,
             ownerUsername: draft.ownerUsername,
           });
-      await credentialService.provisionOwner(payload.id, {
-        name: draft.ownerName,
-        email: draft.ownerEmail,
-        phone: draft.ownerPhone,
-        username: draft.ownerUsername,
-        password: draft.ownerPassword || undefined,
-      });
       setSubmitted(true);
       toast.success(
         tenant

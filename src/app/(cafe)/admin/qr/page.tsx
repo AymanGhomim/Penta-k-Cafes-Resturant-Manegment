@@ -14,8 +14,9 @@ import { getContrastForeground, normalizeTenantBranding } from "@/lib/tenant-bra
 import { useBranch } from "@/providers/branch-provider";
 import { useTenant } from "@/providers/tenant-provider";
 import { tableApiService } from "@/services/table-api.service";
+import { branchApiService } from "@/services/branch-api.service";
 import type { Table } from "@/types/table.types";
-import { cashierQrService, type CashierQrConfig } from "@/services/cashier-qr.service";
+type CashierQrConfig = { orderType: "TABLE" | "TAKEAWAY" | "DELIVERY"; tableId?: string };
 import { toast } from "sonner";
 
 function ScannableQr({ value, color, label }: { value: string; color: string; label: string }) {
@@ -61,7 +62,7 @@ export default function QrManagementPage() {
 
   useEffect(() => {
     if (!branch) return;
-    setCashierConfig(cashierQrService.get(tenant.id, branch.id));
+    setCashierConfig(branch.settings?.cashierQr ?? { orderType: "TAKEAWAY" });
   }, [branch, tenant.id]);
 
   const tables = useMemo(
@@ -88,12 +89,23 @@ export default function QrManagementPage() {
     });
     return typeof window === "undefined" ? path : `${window.location.origin}${path}`;
   };
-  const saveCashierQr = () => {
+  const saveCashierQr = async () => {
     if (!branch) return;
     if (cashierConfig.orderType === "TABLE" && !cashierConfig.tableId)
       return toast.error("اختر الطاولة التي سيعمل عليها QR الكاشير.");
-    cashierQrService.save(tenant.id, branch.id, cashierConfig);
-    toast.success("تم حفظ تخصيص QR الكاشير.");
+    try {
+      await branchApiService.update(branch.id, { settings: {
+        dineInEnabled: branch.settings?.dineInEnabled ?? true,
+        takeawayEnabled: branch.settings?.takeawayEnabled ?? true,
+        deliveryEnabled: branch.settings?.deliveryEnabled ?? true,
+        preparationTime: branch.settings?.preparationTime ?? 15,
+        openingHours: branch.settings?.openingHours,
+        cashierQr: cashierConfig,
+      } });
+      toast.success("تم حفظ تخصيص QR الكاشير.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "تعذر حفظ تخصيص QR الكاشير.");
+    }
   };
   const downloadCashierQr = async () => {
     const href = cashierMenuUrl();

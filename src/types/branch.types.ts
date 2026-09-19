@@ -7,6 +7,7 @@ export type BranchSettings = {
   deliveryEnabled: boolean;
   preparationTime: number;
   openingHours?: string;
+  cashierQr?: { orderType: "TABLE" | "TAKEAWAY" | "DELIVERY"; tableId?: string };
 };
 
 export type Branch = {

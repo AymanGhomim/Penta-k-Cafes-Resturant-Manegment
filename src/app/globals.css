@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes loading-bar {
+  0% { transform: translateX(-120%); }
+  50% { transform: translateX(220%); }
+  100% { transform: translateX(420%); }
+}
+
 @layer base {
   :root {
     /* Neutral application defaults. Cafe routes override these from Tenant.branding. */

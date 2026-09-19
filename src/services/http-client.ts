@@ -2,6 +2,16 @@ import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
 import { APP_CONFIG } from "@/config/app.config";
 import { API_ENDPOINTS } from "@/services/api-endpoints";
 
+let pendingRequests = 0;
+function beginGlobalRequest() {
+  pendingRequests += 1;
+  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("api-loading", { detail: { loading: true } }));
+}
+function finishGlobalRequest() {
+  pendingRequests = Math.max(0, pendingRequests - 1);
+  if (typeof window !== "undefined" && pendingRequests === 0) window.dispatchEvent(new CustomEvent("api-loading", { detail: { loading: false } }));
+}
+
 export type ApiError = {
   message: string;
   code?: string;
@@ -44,6 +54,7 @@ class HttpClient {
 
     this.client.interceptors.request.use(
       (config) => {
+        beginGlobalRequest();
         const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
         if (token && config.headers) {
           config.headers.Authorization = `Bearer ${token}`;
@@ -54,8 +65,9 @@ class HttpClient {
     );
 
     this.client.interceptors.response.use(
-      (response) => response,
+      (response) => { finishGlobalRequest(); return response; },
       async (error: AxiosError) => {
+        finishGlobalRequest();
         const config = error.config as (AxiosRequestConfig & { _retry?: boolean }) | undefined;
         const url = config?.url || "";
         if (error.response?.status === 401 && config && !config._retry && !url.includes(API_ENDPOINTS.auth.refresh)) {
