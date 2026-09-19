@@ -8,7 +8,7 @@ import { formatDateTime } from "@/lib/formatters";
 import type { Tenant } from "@/types/tenant.types";
 import { toast } from "sonner";
 
-const actions = [["CREATE_TENANT", "إضافة كافيه"], ["UPDATE_TENANT", "تعديل كافيه"], ["UPDATE_TENANT_STATUS", "تغيير حالة كافيه"], ["UPDATE_SUBSCRIPTION", "تعديل الاشتراك"], ["CREATE_PLAN", "إضافة باقة"], ["UPDATE_PLAN", "تعديل باقة"], ["DELETE_PLAN", "حذف باقة"]] as const;
+const actions = [["PLATFORM_LOGIN", "تسجيل دخول صاحب المنصة"], ["PLATFORM_REFRESH", "تجديد الجلسة"], ["CREATE_TENANT", "إضافة كافيه"], ["UPDATE_TENANT", "تعديل كافيه"], ["UPDATE_TENANT_STATUS", "تغيير حالة كافيه"], ["UPDATE_SUBSCRIPTION", "تعديل الاشتراك"], ["CREATE_PLAN", "إضافة باقة"], ["UPDATE_PLAN", "تعديل باقة"], ["DELETE_PLAN", "حذف باقة"]] as const;
 const actionLabel = (action: string) => actions.find(([key]) => key === action)?.[1] || action;
 
 export default function PlatformActivityLogPage() {
