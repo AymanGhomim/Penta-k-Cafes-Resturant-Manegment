@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { cafeOperationsService } from "@/services/cafe-operations.service";
+import { promotionsApiService } from "@/services/promotions-api.service";
 import type { Coupon } from "@/types/cafe-operations.types";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 const empty = {
@@ -31,15 +31,21 @@ export default function CouponsPage() {
   const [form, setForm] = useState(empty);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [removeId, setRemoveId] = useState<string | null>(null);
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const reload = async () => {
+    try { setCoupons(await promotionsApiService.listCoupons()); }
+    catch (error) { toast.error(error instanceof Error ? error.message : "تعذر تحميل الكوبونات."); }
+  };
   useEffect(() => {
     const reset = () => {
       setOpen(false);
       setForm(empty);
     };
     window.addEventListener("tenant:changed", reset);
+    void reload();
     return () => window.removeEventListener("tenant:changed", reset);
   }, []);
-  function save() {
+  async function save() {
     const value = Number(form.value);
     const minimumOrder = Number(form.minimumOrder || 0);
     const maximumDiscount = form.maximumDiscount
@@ -59,9 +65,7 @@ export default function CouponsPage() {
     )
       return toast.error("قيمة الخصم غير صحيحة.");
     if (
-      cafeOperationsService
-        .get<Coupon>("coupons")
-        .some(
+      coupons.some(
           (coupon) =>
             coupon.id !== editingId &&
             coupon.code.toLowerCase() === form.code.trim().toLowerCase(),
@@ -84,30 +88,10 @@ export default function CouponsPage() {
         ? Number(form.perCustomerLimit)
         : undefined,
     };
-    const current = cafeOperationsService.get<Coupon>("coupons");
-    const coupon = editingId
-      ? ({
-          ...current.find((item) => item.id === editingId)!,
-          ...couponData,
-        } as Coupon)
-      : cafeOperationsService.create<Coupon>("coupons", couponData);
-    if (editingId)
-      cafeOperationsService.save(
-        "coupons",
-        current.map((item) => (item.id === editingId ? coupon : item)),
-      );
-    cafeOperationsService.audit({
-      module: "coupons",
-      action: editingId ? "COUPON_UPDATED" : "COUPON_CREATED",
-      description: `${editingId ? "تم تحديث" : "تم إنشاء"} الكوبون ${coupon.code}`,
-      entityType: "coupon",
-      entityId: coupon.id,
-    });
-    setOpen(false);
-    setForm(empty);
-    setEditingId(null);
-    window.dispatchEvent(new Event("operations:changed"));
-    toast.success("تمت إضافة الكوبون.");
+    try {
+      const coupon = editingId ? await promotionsApiService.updateCoupon(editingId, couponData) : await promotionsApiService.createCoupon(couponData);
+      setOpen(false); setForm(empty); setEditingId(null); await reload(); toast.success(`تم حفظ الكوبون ${coupon.code} على الخادم.`);
+    } catch (error) { toast.error(error instanceof Error ? error.message : "تعذر حفظ الكوبون."); }
   }
   return (
     <>
@@ -115,6 +99,7 @@ export default function CouponsPage() {
         section="إدارة المنيو"
         title="الكوبونات"
         description="إدارة كوبونات الكافيه وتطبيقها في نقطة البيع."
+        rows={coupons.map((coupon) => ({ id: coupon.id, title: coupon.code, meta: `${coupon.type === "PERCENTAGE" ? `${coupon.value}%` : `${coupon.value} ج.م`}`, value: `استخدم ${coupon.usageCount ?? 0} مرة`, status: coupon.active ? "نشط" : "غير نشط" }))}
         action="إضافة كوبون"
         onAdd={() => {
           setEditingId(null);
@@ -122,9 +107,7 @@ export default function CouponsPage() {
           setOpen(true);
         }}
         onEdit={(id) => {
-          const coupon = cafeOperationsService
-            .get<Coupon>("coupons")
-            .find((item) => item.id === id);
+          const coupon = coupons.find((item) => item.id === id);
           if (!coupon) return;
           setEditingId(id);
           setForm({
@@ -223,19 +206,7 @@ export default function CouponsPage() {
         confirmLabel="حذف"
         onConfirm={() => {
           if (!removeId) return;
-          const coupon = cafeOperationsService
-            .get<Coupon>("coupons")
-            .find((item) => item.id === removeId);
-          cafeOperationsService.remove("coupons", removeId);
-          if (coupon)
-            cafeOperationsService.audit({
-              module: "coupons",
-              action: "COUPON_DELETED",
-              description: `تم حذف الكوبون ${coupon.code}`,
-              entityType: "coupon",
-              entityId: coupon.id,
-            });
-          setRemoveId(null);
+          void promotionsApiService.deleteCoupon(removeId).then(async () => { setRemoveId(null); await reload(); toast.success("تم حذف الكوبون."); }).catch((error) => toast.error(error instanceof Error ? error.message : "تعذر حذف الكوبون."));
         }}
       />
     </>
