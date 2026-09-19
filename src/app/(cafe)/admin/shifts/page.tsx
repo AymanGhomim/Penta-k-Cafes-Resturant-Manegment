@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { formatMoney } from "@/lib/money";
 import { useCurrentEmployee } from "@/providers/current-employee-provider";
 import { useTenant } from "@/providers/tenant-provider";
-import { employeeService } from "@/services/employee.service";
+import { employeeApiService } from "@/services/employee-api.service";
 import { shiftApiService } from "@/services/shift-api.service";
 import type { Shift } from "@/types/cafe-operations.types";
 export default function ShiftsPage() {
@@ -28,12 +28,11 @@ export default function ShiftsPage() {
   const [closing, setClosing] = useState<Shift | null>(null);
   const [employeeId, setEmployeeId] = useState("");
   const [cash, setCash] = useState("");
-  const employees = employeeService
-    .getEmployees(tenant.id)
-    .filter((e) => e.status === "ACTIVE");
+  const [employees, setEmployees] = useState<Awaited<ReturnType<typeof employeeApiService.list>>>([]);
   const reload = () => { void shiftApiService.list().then(setShifts).catch(() => setShifts([])); };
   useEffect(() => {
     reload();
+    void employeeApiService.list().then((next) => setEmployees(next.filter((employee) => employee.status === "ACTIVE"))).catch(() => setEmployees([]));
     const reset = () => {
       reload();
       setOpen(false);

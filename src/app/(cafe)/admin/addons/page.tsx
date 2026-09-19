@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { cafeDataService } from "@/services/cafe-data.service";
+import { catalogApiService } from "@/services/catalog-api.service";
 import { modifierService } from "@/services/modifier.service";
 import { modifierApiService } from "@/services/modifier-api.service";
 import type { ModifierGroup } from "@/types/cafe-operations.types";
@@ -37,8 +37,8 @@ export default function AddonsPage() {
   const [removeId, setRemoveId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(blank);
-  const products = cafeDataService.getProducts();
-  const refresh = () => { void modifierApiService.list().then((next) => { modifierService.setGroups(next); setGroups(next); }).catch(() => setGroups([])); };
+  const [products, setProducts] = useState<Awaited<ReturnType<typeof catalogApiService.listProducts>>>([]);
+  const refresh = () => { void Promise.all([modifierApiService.list(), catalogApiService.listProducts()]).then(([next, nextProducts]) => { modifierService.setGroups(next); setGroups(next); setProducts(nextProducts); }).catch(() => { setGroups([]); setProducts([]); }); };
   useEffect(() => {
     refresh();
     const reset = () => {
