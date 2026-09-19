@@ -1,4 +1,6 @@
 export type BrandAssetKind = "logo" | "favicon" | "loginBackground";
+import { API_ENDPOINTS } from "@/services/api-endpoints";
+import { httpClient } from "@/services/http-client";
 
 type BrandAssetRule = {
   accept: readonly string[];
@@ -54,20 +56,14 @@ function validateImage(
   return { valid: true };
 }
 
-function serializeForDevelopment(file: File, kind: BrandAssetKind) {
+async function serializeForDevelopment(file: File, kind: BrandAssetKind) {
   const validation = validateImage(file, kind);
-  if (!validation.valid) return Promise.reject(new Error(validation.error));
-
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () =>
-      typeof reader.result === "string"
-        ? resolve(reader.result)
-        : reject(new Error("تعذر تجهيز الصورة، حاول مرة أخرى"));
-    reader.onerror = () =>
-      reject(new Error("تعذر قراءة الصورة من جهازك، حاول مرة أخرى"));
-    reader.readAsDataURL(file);
-  });
+  if (!validation.valid) throw new Error(validation.error);
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("kind", kind);
+  const response = await httpClient.post<{ success: boolean; data: { url: string } }>(`${API_ENDPOINTS.platform.uploads}/brand-asset`, formData, { headers: { "Content-Type": undefined } });
+  return response.data.data.url;
 }
 
 export const brandAssetService = {
