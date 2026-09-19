@@ -8,6 +8,7 @@ import { useCartStore } from "@/store/cart.store";
 import { useOrdersStore } from "@/store/orders.store";
 import { useSettingsStore } from "@/store/settings.store";
 import { useCustomerRoute } from "@/providers/customer-route-provider";
+import { platformTenantsApiService } from "@/services/platform-tenants-api.service";
 
 type TenantContextValue = {
   tenant: Tenant;
@@ -16,17 +17,15 @@ type TenantContextValue = {
 };
 const TenantContext = createContext<TenantContextValue | null>(null);
 
-function resolveTenant(): { tenant: Tenant; error?: string } {
+async function resolveTenant(): Promise<{ tenant: Tenant; error?: string }> {
   if (typeof window === "undefined") return { tenant: DEFAULT_TENANT };
   const requestedTenantId = new URLSearchParams(window.location.search).get(
     "tenantId",
   );
   const requestedTenant = requestedTenantId
-    ? tenantService.getTenant(requestedTenantId)
+    ? await platformTenantsApiService.find(requestedTenantId).catch(() => undefined)
     : undefined;
   if (requestedTenant) {
-    if (tenantService.getSelectedDevelopmentTenant() !== requestedTenant.id)
-      tenantService.selectDevelopmentTenant(requestedTenant.id);
     return { tenant: requestedTenant };
   }
   if (requestedTenantId)
@@ -71,15 +70,10 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string>();
   const [resolved, setResolved] = useState(false);
   useEffect(() => {
-    const refresh = (resetOperationalState: boolean) => {
+    const refresh = async (resetOperationalState: boolean) => {
       const next = customerRoute.context
         ? { tenant: customerRoute.context.tenant }
-        : resolveTenant();
-      if (
-        customerRoute.context &&
-        tenantService.getSelectedDevelopmentTenant() !== next.tenant.id
-      )
-        tenantService.selectDevelopmentTenant(next.tenant.id);
+        : await resolveTenant();
       setTenant(next.tenant);
       setError(next.error);
       setResolved(true);
@@ -89,9 +83,9 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
         useSettingsStore.getState().loadForTenant(next.tenant.id);
       }
     };
-    const handleTenantChanged = () => refresh(true);
-    const handleBrandingChanged = () => refresh(false);
-    refresh(true);
+    const handleTenantChanged = () => void refresh(true);
+    const handleBrandingChanged = () => void refresh(false);
+    void refresh(true);
     window.addEventListener("tenant:changed", handleTenantChanged);
     window.addEventListener("tenant:branding-changed", handleBrandingChanged);
     return () => {

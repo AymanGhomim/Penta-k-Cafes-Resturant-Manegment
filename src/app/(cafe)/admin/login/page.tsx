@@ -15,11 +15,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { normalizeTenantBranding } from "@/lib/tenant-branding";
 import { useTenant } from "@/providers/tenant-provider";
-import { tenantService } from "@/services/tenant.service";
 import { useAuthStore } from "@/store/auth.store";
 import { employeeService } from "@/services/employee.service";
 import { roleService } from "@/services/role.service";
-import { credentialService } from "@/services/credential.service";
 import { cafeAuthService } from "@/services/cafe-auth.service";
 import { AdminClientUnavailableState } from "@/components/access/admin-client-unavailable-state";
 import { isAdminClientAllowed } from "@/lib/admin-client-mode";
@@ -43,9 +41,6 @@ export default function AdminLoginPage() {
   const selectedRole = selectedEmployee
     ? roleService.getRoleById(selectedEmployee.roleId, tenant.id)
     : undefined;
-  const demoEmail = selectedEmployee
-    ? credentialService.getLogin(selectedEmployee)
-    : `admin@${tenant.slug}.demo`;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -60,7 +55,6 @@ export default function AdminLoginPage() {
     );
   }, []);
 
-  useEffect(() => setEmail(demoEmail), [demoEmail]);
 
   useEffect(() => {
     const nextEmployees = employeeService.getEmployees(tenant.id);
@@ -107,7 +101,7 @@ export default function AdminLoginPage() {
       name: authenticatedEmployee.name,
       email: normalizedEmail,
       role: "admin",
-      tenantId: tenantService.getActiveTenantId(),
+      tenantId: tenant.id,
       employeeId: authenticatedEmployee.id,
       clientType: "WEB",
     });

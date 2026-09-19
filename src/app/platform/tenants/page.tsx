@@ -69,7 +69,7 @@ export default function PlatformTenantsPage() {
 
   const openCafeDashboard = (tenantId: string) => {
     window.location.assign(
-      `/admin/dashboard?tenantId=${encodeURIComponent(tenantId)}`,
+      `/admin/login?tenantId=${encodeURIComponent(tenantId)}`,
     );
   };
 
