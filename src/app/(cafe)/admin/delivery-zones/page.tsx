@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { cafeOperationsService } from "@/services/cafe-operations.service";
+import { deliveryZoneApiService } from "@/services/delivery-zone-api.service";
 import type { DeliveryZone } from "@/types/cafe-operations.types";
 
 const empty = {
@@ -26,10 +26,14 @@ export default function DeliveryZonesPage() {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(empty);
+  const [zones, setZones] = useState<DeliveryZone[]>([]);
+  const refresh = () => { void deliveryZoneApiService.list().then(setZones).catch(() => setZones([])); };
   useEffect(() => {
+    refresh();
     const reset = () => {
       setOpen(false);
       setForm(empty);
+      refresh();
     };
     window.addEventListener("tenant:changed", reset);
     window.addEventListener("branch:changed", reset);
@@ -38,7 +42,7 @@ export default function DeliveryZonesPage() {
       window.removeEventListener("branch:changed", reset);
     };
   }, []);
-  function save() {
+  async function save() {
     const fee = Number(form.fee);
     const minimumOrder = Number(form.minimumOrder || 0);
     const estimatedMinutes = Number(form.estimatedMinutes);
@@ -52,7 +56,7 @@ export default function DeliveryZonesPage() {
       return toast.error("راجع الرسوم والحد الأدنى والمدة المتوقعة.");
     setSaving(true);
     try {
-      cafeOperationsService.create<DeliveryZone>("deliveryZones", {
+      await deliveryZoneApiService.create({
         name: form.name.trim(),
         fee,
         minimumOrder,
@@ -61,6 +65,7 @@ export default function DeliveryZonesPage() {
       });
       setOpen(false);
       setForm(empty);
+      refresh();
       window.dispatchEvent(new Event("operations:changed"));
       toast.success("تمت إضافة منطقة التوصيل.");
     } catch (error) {
@@ -77,6 +82,7 @@ export default function DeliveryZonesPage() {
         description="إدارة مناطق ورسوم توصيل الفرع الحالي."
         action="إضافة منطقة"
         onAdd={() => setOpen(true)}
+        rows={zones.map((zone) => ({ id: zone.id, title: zone.name, meta: `${zone.fee} رسوم · حد أدنى ${zone.minimumOrder}`, value: `${zone.estimatedMinutes} دقيقة`, status: zone.active ? "نشطة" : "غير نشطة" }))}
       />
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent dir="rtl" className="max-w-lg">

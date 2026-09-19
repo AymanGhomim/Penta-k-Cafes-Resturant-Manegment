@@ -9,11 +9,11 @@ import {
 } from "@/components/features/customer-cart/customer-cart-copy";
 import type { Locale } from "@/lib/menu-translations";
 import { useCustomerRoute } from "@/providers/customer-route-provider";
-import { cafeOperationsService } from "@/services/cafe-operations.service";
 import { checkoutService, type CheckoutInput } from "@/services/checkout.service";
 import { useCartStore } from "@/store/cart.store";
 import { useSettingsStore } from "@/store/settings.store";
 import type { DeliveryZone } from "@/types/cafe-operations.types";
+import { deliveryZoneApiService } from "@/services/delivery-zone-api.service";
 
 export function useCustomerCart() {
   const router = useRouter();
@@ -33,6 +33,7 @@ export function useCustomerCart() {
   const [customerNotes, setCustomerNotes] = useState("");
   const [deliveryZoneId, setDeliveryZoneId] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
   const items = useCartStore((state) => state.items);
   const increaseQuantity = useCartStore((state) => state.increaseQuantity);
   const decreaseQuantity = useCartStore((state) => state.decreaseQuantity);
@@ -51,6 +52,7 @@ export function useCustomerCart() {
   useEffect(() => {
     if (window.localStorage.getItem("cafe-ui-locale") === "ar") setLocale("ar");
     useSettingsStore.getState().loadForTenant();
+    void deliveryZoneApiService.list().then((zones) => setDeliveryZones(zones.filter((zone) => zone.active))).catch(() => setDeliveryZones([]));
   }, []);
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -72,9 +74,6 @@ export function useCustomerCart() {
   const scannedTableNumber = customerContext?.table?.number
     ? String(customerContext.table.number)
     : null;
-  const deliveryZones = cafeOperationsService
-    .get<DeliveryZone>("deliveryZones")
-    .filter((zone) => zone.active);
   const unitPrice = (item: (typeof items)[number]) =>
     item.price +
     Number(item.variantPrice ?? 0) +

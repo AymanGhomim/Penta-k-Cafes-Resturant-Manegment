@@ -1,10 +1,10 @@
 import { httpClient } from "@/services/http-client";
 import { branchService } from "@/services/branch.service";
-import type { InventoryItem, Purchase, Recipe, StockCount, StockMovement, WasteRecord } from "@/types/cafe-operations.types";
+import type { OperationRecord } from "@/types/cafe-operations.types";
 
-type Kind = "inventory" | "purchases" | "recipes" | "waste" | "stockMovements" | "stockCounts";
+type Kind = "inventory" | "purchases" | "recipes" | "waste" | "stockMovements" | "stockCounts" | "deliveryZones";
 type Envelope<T> = { success: boolean; data: T };
-type RecordValue = InventoryItem | Purchase | Recipe | WasteRecord | StockMovement | StockCount;
+type RecordValue = OperationRecord;
 const branchId = () => branchService.getActiveBranchId() ?? undefined;
 const endpoint = (kind: Kind) => `/cafe/inventory/${kind}`;
 const unwrap = <T>(data: T) => data;
