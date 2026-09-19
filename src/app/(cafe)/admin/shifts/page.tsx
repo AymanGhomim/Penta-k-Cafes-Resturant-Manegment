@@ -18,8 +18,7 @@ import { formatMoney } from "@/lib/money";
 import { useCurrentEmployee } from "@/providers/current-employee-provider";
 import { useTenant } from "@/providers/tenant-provider";
 import { employeeService } from "@/services/employee.service";
-import { financeService } from "@/services/finance.service";
-import { cafeOperationsService } from "@/services/cafe-operations.service";
+import { shiftApiService } from "@/services/shift-api.service";
 import type { Shift } from "@/types/cafe-operations.types";
 export default function ShiftsPage() {
   const { tenant } = useTenant();
@@ -32,7 +31,7 @@ export default function ShiftsPage() {
   const employees = employeeService
     .getEmployees(tenant.id)
     .filter((e) => e.status === "ACTIVE");
-  const reload = () => setShifts(cafeOperationsService.get<Shift>("shifts"));
+  const reload = () => { void shiftApiService.list().then(setShifts).catch(() => setShifts([])); };
   useEffect(() => {
     reload();
     const reset = () => {
@@ -47,9 +46,9 @@ export default function ShiftsPage() {
       window.removeEventListener("branch:changed", reset);
     };
   }, []);
-  function submitOpen() {
+  async function submitOpen() {
     try {
-      financeService.openShift(
+      await shiftApiService.open(
         employeeId || access.employee?.id || "",
         Number(cash || 0),
       );
@@ -61,10 +60,10 @@ export default function ShiftsPage() {
       toast.error(error instanceof Error ? error.message : "تعذر فتح الوردية.");
     }
   }
-  function submitClose() {
+  async function submitClose() {
     if (!closing) return;
     try {
-      financeService.closeShift(closing.id, Number(cash));
+      await shiftApiService.close(closing, Number(cash));
       setClosing(null);
       setCash("");
       reload();
