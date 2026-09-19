@@ -16,7 +16,6 @@ import { useCartStore } from "@/store/cart.store";
 import { useOrdersStore } from "@/store/orders.store";
 import type { Branch } from "@/types/branch.types";
 import { useCurrentEmployee } from "@/providers/current-employee-provider";
-import { employeeService } from "@/services/employee.service";
 import { useCustomerRoute } from "@/providers/customer-route-provider";
 
 type BranchContextValue = {
@@ -43,9 +42,7 @@ export function BranchProvider({ children }: { children: React.ReactNode }) {
       } catch {
         all = [];
       }
-      const next = employee
-        ? employeeService.getAccessibleBranches(employee, tenant.id).filter((item) => all.some((remote) => remote.id === item.id))
-        : all;
+      const next = employee ? all.filter((item) => item.status === "ACTIVE" || item.id === customerRoute.context?.branch.id) : all;
       branchRepository.setRemoteBranches(tenant.id, next);
       const saved = branchService.getActiveBranchId(tenant.id);
       const requestedBranchId = customerRoute.context?.branch.id;

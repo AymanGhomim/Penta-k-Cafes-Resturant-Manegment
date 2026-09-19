@@ -22,7 +22,7 @@ export default function WaiterRequestsPage() {
   const [status, setStatus] = useState("ALL");
   const [type, setType] = useState("ALL");
   const [table, setTable] = useState("ALL");
-  const reload = () => setRequests(engagementService.getWaiterRequests());
+  const reload = () => { void engagementService.getWaiterRequests().then(setRequests).catch(() => setRequests([])); };
   useEffect(() => {
     reload();
     const reset = () => {
@@ -50,7 +50,7 @@ export default function WaiterRequestsPage() {
   );
   function update(id: string, next: "ACCEPTED" | "COMPLETED") {
     try {
-      engagementService.updateWaiterRequest(id, next);
+      void engagementService.updateWaiterRequest(id, next).catch((error) => toast.error(error instanceof Error ? error.message : "تعذر تحديث الطلب."));
       reload();
       toast.success(
         next === "ACCEPTED" ? "تم استلام الطلب." : "تم تنفيذ الطلب.",

@@ -28,7 +28,7 @@ import { useBranch } from "@/providers/branch-provider";
 import { useCurrentEmployee } from "@/providers/current-employee-provider";
 import { useTenant } from "@/providers/tenant-provider";
 import { branchService } from "@/services/branch.service";
-import { engagementService } from "@/services/engagement.service";
+import { operationsApiService } from "@/services/operations-api.service";
 import { orderApiService } from "@/services/order-api.service";
 import { useAuthStore } from "@/store/auth.store";
 
@@ -139,18 +139,18 @@ function AdminShellContent({ children }: { children: React.ReactNode }) {
   }, [employee, tenant.id]);
   useEffect(() => {
     const updateBadges = () => {
-      void (branch ? orderApiService.list(branch.id) : Promise.resolve([])).then((orders) => {
+      void Promise.all([
+        branch ? orderApiService.list(branch.id) : Promise.resolve([]),
+        operationsApiService.list("waiterRequests").catch(() => []),
+        operationsApiService.list("notifications").catch(() => []),
+      ]).then(([orders, requests, notifications]) => {
       setBadgeCounts({
         "/admin/orders": orders.filter((item) => item.status === "NEW").length,
         "/kitchen/orders": orders.filter((item) =>
           ["NEW", "PREPARING"].includes(item.status),
         ).length,
-        "/admin/waiter-requests": engagementService
-          .getWaiterRequests()
-          .filter((item) => item.status === "NEW").length,
-        "/admin/notifications": engagementService
-          .getNotifications()
-          .filter((item) => !item.read).length,
+        "/admin/waiter-requests": (requests as { status?: string }[]).filter((item) => item.status === "NEW").length,
+        "/admin/notifications": (notifications as { read?: boolean }[]).filter((item) => !item.read).length,
       });
       });
     };

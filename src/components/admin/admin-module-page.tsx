@@ -10,7 +10,7 @@ import { SearchInput } from "@/components/shared/search-input";
 import { Pagination } from "@/components/shared/pagination";
 import { EmptyState } from "@/components/shared/empty-state";
 import { usePagination } from "@/hooks/use-pagination";
-import { cafeOperationsService } from "@/services/cafe-operations.service";
+import { inventoryApiService } from "@/services/inventory-api.service";
 import type { OperationResource } from "@/types/cafe-operations.types";
 import type { PermissionKey } from "@/types/access-control.types";
 import { useCurrentEmployee } from "@/providers/current-employee-provider";
@@ -95,8 +95,7 @@ export function AdminModulePage({
   const [query, setQuery] = useState("");
   const reload = useCallback(() => {
     if (usesExternalRows || !resource) return setRecords(rows);
-    const data = cafeOperationsService.get(resource);
-    setRecords(
+    void inventoryApiService.list(resource as Parameters<typeof inventoryApiService.list>[0]).then((data) => setRecords(
       data.map((record) => ({
         id: record.id,
         title: String(
@@ -117,7 +116,7 @@ export function AdminModulePage({
         status:
           record.active === false ? "غير نشط" : String(record.status ?? "نشط"),
       })),
-    );
+    )).catch(() => setRecords([]));
   }, [resource, rows, usesExternalRows]);
   useEffect(() => {
     reload();

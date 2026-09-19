@@ -33,7 +33,7 @@ const permissions: Record<
 export default function NotificationsPage() {
   const access = useCurrentEmployee();
   const [records, setRecords] = useState<NotificationRecord[]>([]);
-  const reload = () => setRecords(engagementService.getNotifications());
+  const reload = () => { void engagementService.getNotifications().then(setRecords).catch(() => setRecords([])); };
   useEffect(() => {
     reload();
     window.addEventListener("operations:changed", reload);
@@ -60,7 +60,7 @@ export default function NotificationsPage() {
               variant="outline"
               disabled={!records.some((r) => !r.read)}
               onClick={() => {
-                engagementService.markAllNotificationsRead();
+                void engagementService.markAllNotificationsRead();
                 reload();
               }}
             >
@@ -111,7 +111,7 @@ export default function NotificationsPage() {
                           <Button
                             size="sm"
                             onClick={() => {
-                              engagementService.markNotificationRead(record.id);
+                              void engagementService.markNotificationRead(record.id);
                               reload();
                             }}
                           >
