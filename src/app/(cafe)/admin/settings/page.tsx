@@ -84,6 +84,8 @@ export default function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [contact, setContact] = useState(emptyContact);
+  const [profileName, setProfileName] = useState("");
+  const [legalName, setLegalName] = useState("");
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const text = copy[locale];
@@ -100,6 +102,8 @@ export default function SettingsPage() {
     let cancelled = false;
     void cafeTenantApiService.get().then((remoteTenant) => {
       if (cancelled) return;
+      setProfileName(remoteTenant.name);
+      setLegalName(remoteTenant.legalName ?? "");
       setContact({
         phone: remoteTenant.contact?.phone ?? "",
         whatsapp: remoteTenant.contact?.whatsapp ?? "",
@@ -161,6 +165,8 @@ export default function SettingsPage() {
     try {
       setIsSavingProfile(true);
       await cafeTenantApiService.update({
+        name: profileName.trim(),
+        legalName: legalName.trim() || undefined,
         contact: {
           phone: contact.phone.trim(),
           whatsapp: contact.whatsapp.trim(),
@@ -207,6 +213,8 @@ export default function SettingsPage() {
             description="تظهر هذه البيانات مع العنوان ورقم الهاتف داخل منيو العملاء."
             action={
               <div className="grid w-full gap-3 sm:grid-cols-2 lg:w-[720px]">
+                <ContactField label="اسم الكافيه" value={profileName} disabled={!canEdit} onChange={setProfileName} />
+                <ContactField label="الاسم القانوني" value={legalName} disabled={!canEdit} onChange={setLegalName} />
                 <ContactField label="رقم الهاتف" value={contact.phone} disabled={!canEdit} onChange={(phone) => setContact((current) => ({ ...current, phone }))} />
                 <ContactField label="WhatsApp" value={contact.whatsapp} disabled={!canEdit} onChange={(whatsapp) => setContact((current) => ({ ...current, whatsapp }))} />
                 <div className="sm:col-span-2"><ContactField label="العنوان" value={contact.address} disabled={!canEdit} onChange={(address) => setContact((current) => ({ ...current, address }))} /></div>
