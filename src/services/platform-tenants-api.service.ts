@@ -77,4 +77,8 @@ export const platformTenantsApiService = {
   async updateStatus(id: string, status: Tenant["status"]) {
     return this.update(id, { status });
   },
+  async updateSubscription(id: string, input: { status?: "TRIALING" | "ACTIVE" | "PAST_DUE" | "CANCELED"; type?: "TRIAL" | "PAID"; startsAt?: string; endsAt?: string | null }) {
+    const response = await httpClient.patch<Envelope<BackendTenant>>(`${API_ENDPOINTS.platform.tenants}/${id}/subscription`, input);
+    return toFrontendTenant(response.data.data);
+  },
 };
