@@ -1,10 +1,11 @@
-import { cafeOperationsService } from "@/services/cafe-operations.service";
 import type { ModifierGroup } from "@/types/cafe-operations.types";
+let remoteGroups: ModifierGroup[] = [];
 
 export type ModifierSelection = { groupId: string; optionIds: string[] };
 
 export const modifierService = {
-  getGroups: () => cafeOperationsService.get<ModifierGroup>("modifierGroups"),
+  getGroups: () => remoteGroups,
+  setGroups: (groups: ModifierGroup[]) => { remoteGroups = groups; },
   getForProduct(productId: string) {
     return this.getGroups()
       .filter((group) => group.active && group.productIds.includes(productId))

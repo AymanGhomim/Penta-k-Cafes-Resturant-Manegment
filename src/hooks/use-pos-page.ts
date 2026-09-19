@@ -10,6 +10,7 @@ import { cafeDataService } from "@/services/cafe-data.service";
 import { cafeOperationsService } from "@/services/cafe-operations.service";
 import { checkoutService, type CheckoutInput } from "@/services/checkout.service";
 import { modifierService } from "@/services/modifier.service";
+import { modifierApiService } from "@/services/modifier-api.service";
 import { useCartStore } from "@/store/cart.store";
 import { useOrdersStore } from "@/store/orders.store";
 import type {
@@ -75,6 +76,7 @@ export function usePosPage() {
       resetDraft();
     };
     reload();
+    void modifierApiService.list().then((groups) => modifierService.setGroups(groups)).catch(() => undefined);
     window.addEventListener("tenant:changed", reset);
     window.addEventListener("branch:changed", reset);
     return () => {

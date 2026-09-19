@@ -17,8 +17,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { cafeDataService } from "@/services/cafe-data.service";
-import { cafeOperationsService } from "@/services/cafe-operations.service";
 import { modifierService } from "@/services/modifier.service";
+import { modifierApiService } from "@/services/modifier-api.service";
 import type { ModifierGroup } from "@/types/cafe-operations.types";
 
 const blank = {
@@ -38,7 +38,7 @@ export default function AddonsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(blank);
   const products = cafeDataService.getProducts();
-  const refresh = () => setGroups(modifierService.getGroups());
+  const refresh = () => { void modifierApiService.list().then((next) => { modifierService.setGroups(next); setGroups(next); }).catch(() => setGroups([])); };
   useEffect(() => {
     refresh();
     const reset = () => {
@@ -55,7 +55,7 @@ export default function AddonsPage() {
     };
   }, []);
 
-  function save() {
+  async function save() {
     const minSelections = Number(form.min);
     const maxSelections = Number(form.max);
     const options = form.options
@@ -94,24 +94,7 @@ export default function AddonsPage() {
       active: true,
       sortOrder: groups.length,
     };
-    const group = editingId
-      ? ({
-          ...groups.find((item) => item.id === editingId)!,
-          ...data,
-        } as ModifierGroup)
-      : cafeOperationsService.create<ModifierGroup>("modifierGroups", data);
-    if (editingId)
-      cafeOperationsService.save(
-        "modifierGroups",
-        groups.map((item) => (item.id === editingId ? group : item)),
-      );
-    cafeOperationsService.audit({
-      module: "modifiers",
-      action: editingId ? "MODIFIER_GROUP_UPDATED" : "MODIFIER_GROUP_CREATED",
-      description: `${editingId ? "تم تحديث" : "تم إنشاء"} مجموعة الخيارات ${group.name}`,
-      entityType: "modifierGroup",
-      entityId: group.id,
-    });
+    await (editingId ? modifierApiService.update(editingId, data) : modifierApiService.create(data));
     setDialogOpen(false);
     setEditingId(null);
     setForm(blank);
@@ -121,37 +104,16 @@ export default function AddonsPage() {
     );
   }
 
-  function toggleOption(groupId: string, optionId: string) {
-    cafeOperationsService.save(
-      "modifierGroups",
-      groups.map((group) =>
-        group.id === groupId
-          ? {
-              ...group,
-              options: group.options.map((option) =>
-                option.id === optionId
-                  ? { ...option, available: !option.available }
-                  : option,
-              ),
-            }
-          : group,
-      ),
-    );
+  async function toggleOption(groupId: string, optionId: string) {
+    const group = groups.find((item) => item.id === groupId);
+    if (!group) return;
+    await modifierApiService.update(groupId, { options: group.options.map((option) => option.id === optionId ? { ...option, available: !option.available } : option) });
     refresh();
   }
 
-  function remove() {
+  async function remove() {
     if (!removeId) return;
-    const group = groups.find((item) => item.id === removeId);
-    cafeOperationsService.remove("modifierGroups", removeId);
-    if (group)
-      cafeOperationsService.audit({
-        module: "modifiers",
-        action: "MODIFIER_GROUP_DELETED",
-        description: `تم حذف مجموعة الخيارات ${group.name}`,
-        entityType: "modifierGroup",
-        entityId: group.id,
-      });
+    await modifierApiService.remove(removeId);
     setRemoveId(null);
     refresh();
     toast.success("تم حذف المجموعة.");

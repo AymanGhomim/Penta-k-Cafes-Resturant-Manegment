@@ -18,6 +18,7 @@ import {
 import { useCartStore } from "@/store/cart.store";
 import type { Product } from "@/types/product.types";
 import { modifierService } from "@/services/modifier.service";
+import { modifierApiService } from "@/services/modifier-api.service";
 import type { ModifierGroup } from "@/types/cafe-operations.types";
 import { toast } from "sonner";
 
@@ -34,6 +35,7 @@ export function ProductDetailClient({ product }: { product: Product }) {
     if (window.localStorage.getItem("cafe-ui-locale") === "ar") setLocale("ar");
     setBranchPrice(product.price);
     setModifierGroups(modifierService.getForProduct(product.id));
+    void modifierApiService.list().then((groups) => { modifierService.setGroups(groups); setModifierGroups(groups.filter((group) => group.active && group.productIds.includes(product.id))); }).catch(() => undefined);
     setSelections({});
     void Promise.resolve();
   }, [product.id, product.price]);
