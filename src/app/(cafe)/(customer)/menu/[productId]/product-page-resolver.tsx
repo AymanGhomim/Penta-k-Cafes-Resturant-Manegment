@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AppLoadingState, AppNotFoundState } from "@/components/feedback/app-state";
-import { cafeDataService } from "@/services/cafe-data.service";
+import { publicMenuApiService } from "@/services/public-menu-api.service";
 import type { Product } from "@/types/product.types";
 import { ProductDetailClient } from "./product-detail-client";
 import { useCustomerRoute } from "@/providers/customer-route-provider";
@@ -16,11 +16,7 @@ export function ProductPageResolver({ productId }: { productId: string }) {
   useEffect(() => {
     const resolve = () => {
       if (!tenantId || !branchId) return setProduct(null);
-      setProduct(
-        cafeDataService
-          .getBranchProducts(branchId, tenantId)
-          .find((item) => item.id === productId && item.isAvailable) ?? null,
-      );
+      void publicMenuApiService.load(tenantId, branchId).then((data) => setProduct(data.products.find((item) => item.id === productId && item.isAvailable) ?? null)).catch(() => setProduct(null));
     };
     resolve();
     window.addEventListener("branch:changed", resolve);

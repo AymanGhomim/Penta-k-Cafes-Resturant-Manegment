@@ -19,8 +19,10 @@ import {
   translatedProduct,
   type Locale,
 } from "@/lib/menu-translations";
-import { cafeDataService } from "@/services/cafe-data.service";
+import { publicMenuApiService } from "@/services/public-menu-api.service";
 import type { Product } from "@/types/product.types";
+import type { Category } from "@/types/category.types";
+import type { Offer } from "@/types/offer.types";
 import { useCartStore } from "@/store/cart.store";
 import { useCustomerRoute } from "@/providers/customer-route-provider";
 
@@ -39,10 +41,10 @@ export function MenuPageClient() {
   );
   const [branchProducts, setBranchProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<
-    ReturnType<typeof cafeDataService.getCategories>
+    Category[]
   >([]);
   const [activeOffers, setActiveOffers] = useState<
-    ReturnType<typeof cafeDataService.getOffers>
+    Offer[]
   >([]);
   const dragStartX = useRef(0);
   const didDrag = useRef(false);
@@ -58,21 +60,7 @@ export function MenuPageClient() {
   useEffect(() => {
     const refresh = () => {
       if (!customerTenantId || !customerBranchId) return;
-      setBranchProducts(
-        cafeDataService.getBranchProducts(customerBranchId, customerTenantId),
-      );
-      setCategories(
-        cafeDataService
-          .getCategories(customerTenantId)
-          .filter((category) => category.isActive)
-          .sort((a, b) => a.sortOrder - b.sortOrder),
-      );
-      setActiveOffers(
-        cafeDataService
-          .getOffers(customerTenantId)
-          .filter((offer) => offer.isActive)
-          .sort((a, b) => a.sortOrder - b.sortOrder),
-      );
+      void publicMenuApiService.load(customerTenantId, customerBranchId).then((data) => { setBranchProducts(data.products); setCategories(data.categories.filter((category) => category.isActive).sort((a, b) => a.sortOrder - b.sortOrder)); setActiveOffers(data.offers.filter((offer) => offer.isActive).sort((a, b) => a.sortOrder - b.sortOrder)); }).catch(() => { setBranchProducts([]); setCategories([]); setActiveOffers([]); });
     };
     void Promise.resolve().then(() => {
       setIsHydrated(true);
