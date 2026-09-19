@@ -24,11 +24,8 @@ export function CustomerRouteProvider({ children }: { children: React.ReactNode 
   const resolve = useCallback(() => {
     const nextPathname = window.location.pathname;
     setPathname(nextPathname);
-    setResult(
-      isCustomerRoute(nextPathname)
-        ? customerContextService.resolve(new URLSearchParams(window.location.search))
-        : null,
-    );
+    if (!isCustomerRoute(nextPathname)) return setResult(null);
+    void customerContextService.resolve(new URLSearchParams(window.location.search)).then(setResult);
   }, []);
 
   useEffect(() => {

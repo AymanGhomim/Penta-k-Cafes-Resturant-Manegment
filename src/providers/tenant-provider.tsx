@@ -35,14 +35,6 @@ async function resolveTenant(): Promise<{ tenant: Tenant; error?: string }> {
       tenant: DEFAULT_TENANT,
       error: "الكافيه المطلوب غير موجود. ارجع إلى المنصة واختر كافيهًا صالحًا.",
     };
-  const selectedId = tenantService.getSelectedDevelopmentTenant();
-  const selected = selectedId ? tenantService.getTenant(selectedId) : undefined;
-  if (selected) return { tenant: selected };
-  if (selectedId)
-    return {
-      tenant: DEFAULT_TENANT,
-      error: "تعذر تحديد الكافيه الحالي. اختر كافيهًا صالحًا من المنصة.",
-    };
   const remoteTenant = await cafeTenantApiService.get().catch(() => undefined);
   if (remoteTenant) { tenantService.setRemoteActiveTenant(remoteTenant); return { tenant: remoteTenant }; }
   const hostname = window.location.hostname.toLowerCase();
@@ -57,15 +49,11 @@ async function resolveTenant(): Promise<{ tenant: Tenant; error?: string }> {
     subdomain && subdomain !== "www" && subdomain !== "platform"
       ? subdomain
       : configuredSlug;
-  const resolved = process.env.NODE_ENV === "production"
-    ? undefined
-    : tenantService.listTenants().find((tenant) => tenant.slug === requestedSlug);
-  return resolved
-    ? { tenant: resolved }
-    : {
-        tenant: DEFAULT_TENANT,
-        error: "تعذر تحديد هوية الكافيه المطلوبة. راجع إعدادات النطاق في المنصة.",
-      };
+  void requestedSlug;
+  return {
+    tenant: DEFAULT_TENANT,
+    error: "تعذر تحديد هوية الكافيه من الخادم. راجع إعدادات النطاق والـ API.",
+  };
 }
 
 export function TenantProvider({ children }: { children: React.ReactNode }) {

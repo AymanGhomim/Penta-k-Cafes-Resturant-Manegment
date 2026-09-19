@@ -3,9 +3,7 @@ import {
   customerRouteHref,
   type CustomerOrderType,
 } from "@/constants/customer-route";
-import { branchService } from "@/services/branch.service";
-import { tenantService } from "@/services/tenant.service";
-import { getTenantTables } from "@/services/cafe-data.service";
+import { publicContextApiService } from "@/services/public-context-api.service";
 import type { Branch } from "@/types/branch.types";
 import type { Table } from "@/types/table.types";
 import type { Tenant } from "@/types/tenant.types";
@@ -46,7 +44,7 @@ function failure(code: CustomerContextError, explicit: boolean): CustomerContext
   return { ok: false, code, message: messages[code], explicit };
 }
 
-export function resolveCustomerContext(searchParams: URLSearchParams): CustomerContextResult {
+export async function resolveCustomerContext(searchParams: URLSearchParams): Promise<CustomerContextResult> {
   const tenantId = searchParams.get(CUSTOMER_ROUTE_PARAMS.tenantId)?.trim();
   const branchId = searchParams.get(CUSTOMER_ROUTE_PARAMS.branchId)?.trim();
   const tableId = searchParams.get(CUSTOMER_ROUTE_PARAMS.tableId)?.trim();
@@ -69,24 +67,17 @@ export function resolveCustomerContext(searchParams: URLSearchParams): CustomerC
   // table-specific links continue to carry their explicit context.
   const fallbackTenantId = GOLDEN_DRIP_TENANT_ID;
   const resolvedTenantId = tenantId || fallbackTenantId;
-  const tenant = tenantService.getTenant(resolvedTenantId);
-  if (!tenant || tenant.status === "ARCHIVED" || tenant.status === "SUSPENDED")
-    return failure("TENANT_NOT_FOUND", explicit);
-  if (!hasTenantFeature(tenant, "onlineMenu"))
-    return failure("FEATURE_UNAVAILABLE", explicit);
-
-  const branches = branchService.getBranches(tenant.id);
-  const fallbackBranchId = branchService.getActiveBranchId(tenant.id);
-  const branch = branches.find((candidate) => candidate.id === (branchId || fallbackBranchId));
-  if (!branch || branch.tenantId !== tenant.id) return failure("BRANCH_NOT_FOUND", explicit);
+  let remote: Awaited<ReturnType<typeof publicContextApiService.resolve>>;
+  try { remote = await publicContextApiService.resolve(resolvedTenantId, branchId || undefined); } catch { return failure("TENANT_NOT_FOUND", explicit); }
+  const { tenant, branch, tables } = remote;
+  if (!hasTenantFeature(tenant, "onlineMenu")) return failure("FEATURE_UNAVAILABLE", explicit);
   if (branch.status !== "ACTIVE") return failure("BRANCH_INACTIVE", explicit);
 
   let table: Table | undefined;
   if (tableId) {
     if (!hasTenantFeature(tenant, "qrOrdering"))
       return failure("FEATURE_UNAVAILABLE", explicit);
-    table = getTenantTables(tenant.id)
-      .find((candidate) => candidate.id === tableId && candidate.branchId === branch.id);
+    table = tables.find((candidate) => candidate.id === tableId && candidate.branchId === branch.id);
     if (!table || !table.isActive) return failure("TABLE_NOT_FOUND", explicit);
   }
 

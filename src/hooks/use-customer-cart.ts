@@ -9,7 +9,7 @@ import {
 } from "@/components/features/customer-cart/customer-cart-copy";
 import type { Locale } from "@/lib/menu-translations";
 import { useCustomerRoute } from "@/providers/customer-route-provider";
-import { checkoutService, type CheckoutInput } from "@/services/checkout.service";
+import { publicMenuApiService } from "@/services/public-menu-api.service";
 import { useCartStore } from "@/store/cart.store";
 import { useSettingsStore } from "@/store/settings.store";
 import type { DeliveryZone } from "@/types/cafe-operations.types";
@@ -107,36 +107,10 @@ export function useCustomerCart() {
       return toast.error("العنوان ومنطقة التوصيل مطلوبان.");
     setSubmitting(true);
     try {
-      const checkoutInput: CheckoutInput = {
-        items,
-        orderType: customerContext.table
-          ? "TABLE"
-          : orderType === "delivery"
-            ? "DELIVERY"
-            : "TAKEAWAY",
-        tableId: customerContext.table?.id,
-        customerName: customerName.trim() || undefined,
-        customerPhone: customerPhone.trim() || undefined,
-        customerAddress: customerAddress.trim() || undefined,
-        customerNotes: customerNotes.trim() || undefined,
-        deliveryZoneId: orderType === "delivery" ? deliveryZoneId : undefined,
-        paymentMethod: "CASH",
-        source:
-          customerContext.table || customerContext.orderType
-            ? "QR_MENU"
-            : "ONLINE_MENU",
-        expectedTenantId: customerContext.tenant.id,
-        expectedBranchId: customerContext.branch.id,
-        deferPayment: true,
-      };
-      let result;
-      try {
-        result = await checkoutService.checkoutRemote(checkoutInput);
-      } catch {
-        result = checkoutService.checkout(checkoutInput);
-      }
+      const response = await publicMenuApiService.createOrder({ tenantId: customerContext.tenant.id, branchId: customerContext.branch.id, orderType: customerContext.table ? "TABLE" : orderType === "delivery" ? "DELIVERY" : "TAKEAWAY", source: customerContext.table || customerContext.orderType ? "QR_MENU" : "ONLINE_MENU", paymentMethod: paymentMethod === "instapay" ? "INSTAPAY" : "CASH", paymentStatus: "PENDING", tableNumber: customerContext.table?.number, customerName: customerName.trim() || undefined, customerPhone: customerPhone.trim() || undefined, customerAddress: customerAddress.trim() || undefined, customerNotes: customerNotes.trim() || undefined, tax: serviceTax, items: items.map((item) => ({ productId: item.productId, productName: item.name, unitPrice: unitPrice(item), quantity: item.quantity, notes: item.notes })) });
+      const result = (response.data as { id: string });
       clearCart();
-      router.push(customerRoute.href(`/order/${result.order.id}`));
+      router.push(customerRoute.href(`/order/${result.id}`));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "تعذر إرسال الطلب.");
       setSubmitting(false);

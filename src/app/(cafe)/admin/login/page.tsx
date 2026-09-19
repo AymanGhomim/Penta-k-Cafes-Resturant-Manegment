@@ -16,8 +16,6 @@ import { Input } from "@/components/ui/input";
 import { normalizeTenantBranding } from "@/lib/tenant-branding";
 import { useTenant } from "@/providers/tenant-provider";
 import { useAuthStore } from "@/store/auth.store";
-import { employeeService } from "@/services/employee.service";
-import { roleService } from "@/services/role.service";
 import { cafeAuthService } from "@/services/cafe-auth.service";
 import { AdminClientUnavailableState } from "@/components/access/admin-client-unavailable-state";
 import { isAdminClientAllowed } from "@/lib/admin-client-mode";
@@ -28,19 +26,6 @@ export default function AdminLoginPage() {
   const branding = normalizeTenantBranding(tenant.branding);
   const login = useAuthStore((state) => state.login);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const employees = employeeService.getEmployees(tenant.id);
-  const owner = employees.find(
-    (employee) =>
-      roleService.getRoleById(employee.roleId, tenant.id)?.code === "OWNER",
-  );
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState(
-    owner?.id ?? employees[0]?.id ?? "",
-  );
-  const selectedEmployee =
-    employeeService.getEmployeeById(selectedEmployeeId, tenant.id) ?? owner;
-  const selectedRole = selectedEmployee
-    ? roleService.getRoleById(selectedEmployee.roleId, tenant.id)
-    : undefined;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -55,15 +40,6 @@ export default function AdminLoginPage() {
     );
   }, []);
 
-
-  useEffect(() => {
-    const nextEmployees = employeeService.getEmployees(tenant.id);
-    const nextOwner = nextEmployees.find(
-      (employee) =>
-        roleService.getRoleById(employee.roleId, tenant.id)?.code === "OWNER",
-    );
-    setSelectedEmployeeId(nextOwner?.id ?? nextEmployees[0]?.id ?? "");
-  }, [tenant.id]);
 
   useEffect(() => {
     if (isAuthenticated) router.replace("/admin/dashboard");
@@ -161,28 +137,6 @@ export default function AdminLoginPage() {
             </div>
 
             <form className="mt-5 space-y-3.5" onSubmit={handleSubmit}>
-              {process.env.NODE_ENV !== "production" && employees.length ? (
-                <label className="block space-y-2 text-sm font-semibold">
-                  حساب الموظف التجريبي
-                  <select
-                    value={selectedEmployeeId}
-                    onChange={(event) => setSelectedEmployeeId(event.target.value)}
-                    className="mt-2 h-[50px] w-full rounded-lg border bg-background px-4"
-                  >
-                    {employees.map((employee) => {
-                      const role = roleService.getRoleById(employee.roleId, tenant.id);
-                      return (
-                        <option key={employee.id} value={employee.id}>
-                          {employee.name} · {role?.name ?? "بدون دور"}
-                        </option>
-                      );
-                    })}
-                  </select>
-                  <span className="block text-xs font-normal text-muted-foreground">
-                    أداة محاكاة Frontend للتطوير فقط · الدور الحالي: {selectedRole?.name ?? "—"}
-                  </span>
-                </label>
-              ) : null}
               <label className="block space-y-2 text-sm font-semibold" htmlFor="email">
                 اسم المستخدم أو البريد الإلكتروني
                 <span className="relative mt-2 block">
