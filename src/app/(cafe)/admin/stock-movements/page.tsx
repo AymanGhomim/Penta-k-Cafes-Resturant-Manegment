@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { cafeOperationsService } from "@/services/cafe-operations.service";
+import { inventoryApiService } from "@/services/inventory-api.service";
 import type {
   InventoryItem,
   StockMovement,
@@ -22,10 +22,7 @@ export default function StockMovementsPage() {
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   useEffect(() => {
-    const reload = () => {
-      setMovements(cafeOperationsService.get<StockMovement>("stockMovements"));
-      setInventory(cafeOperationsService.get<InventoryItem>("inventory"));
-    };
+    const reload = () => { void Promise.all([inventoryApiService.list<StockMovement>("stockMovements"), inventoryApiService.list<InventoryItem>("inventory")]).then(([nextMovements, nextInventory]) => { setMovements(nextMovements); setInventory(nextInventory); }).catch(() => { setMovements([]); setInventory([]); }); };
     reload();
     window.addEventListener("tenant:changed", reload);
     window.addEventListener("branch:changed", reload);

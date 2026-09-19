@@ -19,10 +19,12 @@ import { Input } from "@/components/ui/input";
 import { formatMoney } from "@/lib/money";
 import { useTenant } from "@/providers/tenant-provider";
 import { cafeOperationsService } from "@/services/cafe-operations.service";
+import { inventoryApiService } from "@/services/inventory-api.service";
 import type {
   InventoryItem,
   Purchase,
   Supplier,
+  StockMovement,
 } from "@/types/cafe-operations.types";
 import { Pagination } from "@/components/shared/pagination";
 import { usePagination } from "@/hooks/use-pagination";
@@ -43,8 +45,8 @@ export default function PurchasesPage() {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(blank);
-  const reload = () =>
-    setPurchases(cafeOperationsService.get<Purchase>("purchases"));
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const reload = () => { void Promise.all([inventoryApiService.list<Purchase>("purchases"), inventoryApiService.list<InventoryItem>("inventory")]).then(([nextPurchases, nextInventory]) => { setPurchases(nextPurchases); setInventory(nextInventory.filter((item) => item.active)); }).catch(() => { setPurchases([]); setInventory([]); }); };
   useEffect(() => {
     reload();
     const handler = () => {
@@ -59,16 +61,13 @@ export default function PurchasesPage() {
       window.removeEventListener("branch:changed", handler);
     };
   }, []);
-  const inventory = cafeOperationsService
-    .get<InventoryItem>("inventory")
-    .filter((item) => item.active);
   const suppliers = cafeOperationsService
     .get<Supplier>("suppliers")
     .filter((item) => item.active);
   const supplierName = (id: string) =>
     suppliers.find((item) => item.id === id)?.name ?? "مورد غير معروف";
   const pagination = usePagination(purchases);
-  function save() {
+  async function save() {
     const quantity = Number(form.quantity);
     const unitCost = Number(form.unitCost);
     const paid = Number(form.paid);
@@ -87,7 +86,7 @@ export default function PurchasesPage() {
       return toast.error("راجع الكمية والتكلفة والمبلغ المدفوع.");
     setSaving(true);
     try {
-      const purchase = cafeOperationsService.create<Purchase>("purchases", {
+      await inventoryApiService.create<Purchase>("purchases", {
         invoiceNumber: form.invoiceNumber.trim(),
         supplierId: form.supplierId,
         date: new Date().toISOString(),
@@ -102,13 +101,6 @@ export default function PurchasesPage() {
         remaining: total - paid,
         status: "ORDERED",
       });
-      cafeOperationsService.audit({
-        module: "purchases",
-        action: "PURCHASE_CREATED",
-        description: `تم إنشاء فاتورة الشراء ${purchase.invoiceNumber}`,
-        entityType: "purchase",
-        entityId: purchase.id,
-      });
       setOpen(false);
       setForm(blank());
       reload();
@@ -121,9 +113,17 @@ export default function PurchasesPage() {
       setSaving(false);
     }
   }
-  function receive(id: string) {
+  async function receive(id: string) {
     try {
-      cafeOperationsService.receivePurchase(id);
+      const purchase = purchases.find((item) => item.id === id);
+      if (!purchase || purchase.status === "RECEIVED") return;
+      await inventoryApiService.update<Purchase>(id, { status: "RECEIVED" });
+      for (const line of purchase.items) {
+        const item = inventory.find((entry) => entry.id === line.inventoryItemId);
+        if (!item) continue;
+        await inventoryApiService.update<InventoryItem>(item.id, { quantity: item.quantity + line.quantity, averageCost: line.unitCost });
+        await inventoryApiService.create<StockMovement>("stockMovements", { inventoryItemId: item.id, type: "PURCHASE", quantity: line.quantity, quantityBefore: item.quantity, quantityAfter: item.quantity + line.quantity, notes: purchase.invoiceNumber });
+      }
       reload();
       toast.success("تم استلام الفاتورة وتحديث مخزون الفرع.");
     } catch (error) {

@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { formatMoney } from "@/lib/money";
 import { useTenant } from "@/providers/tenant-provider";
 import { cafeDataService } from "@/services/cafe-data.service";
-import { cafeOperationsService } from "@/services/cafe-operations.service";
+import { inventoryApiService } from "@/services/inventory-api.service";
 import type { InventoryItem, Recipe } from "@/types/cafe-operations.types";
 import type { Product } from "@/types/product.types";
 
@@ -30,13 +30,9 @@ export default function RecipesPage() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(empty);
   const reload = () => {
-    setRecipes(cafeOperationsService.get<Recipe>("recipes"));
+    void inventoryApiService.list<Recipe>("recipes").then(setRecipes).catch(() => setRecipes([]));
     setProducts(cafeDataService.getProducts());
-    setInventory(
-      cafeOperationsService
-        .get<InventoryItem>("inventory")
-        .filter((item) => item.active),
-    );
+    void inventoryApiService.list<InventoryItem>("inventory").then((items) => setInventory(items.filter((item) => item.active))).catch(() => setInventory([]));
   };
   useEffect(() => {
     reload();
@@ -54,7 +50,7 @@ export default function RecipesPage() {
   }, []);
   const productName = (id: string) =>
     products.find((item) => item.id === id)?.name ?? "منتج غير موجود";
-  function save() {
+  async function save() {
     const quantity = Number(form.quantity);
     const item = inventory.find((entry) => entry.id === form.inventoryItemId);
     if (!form.productId || !item)
@@ -66,18 +62,11 @@ export default function RecipesPage() {
         (recipe) => recipe.productId === form.productId,
       );
       if (existing) return toast.error("يوجد وصفة لهذا المنتج بالفعل.");
-      const recipe = cafeOperationsService.create<Recipe>("recipes", {
+      await inventoryApiService.create<Recipe>("recipes", {
         productId: form.productId,
         ingredients: [
           { inventoryItemId: item.id, quantity, unit: form.unit || item.unit },
         ],
-      });
-      cafeOperationsService.audit({
-        module: "recipes",
-        action: "RECIPE_CREATED",
-        description: `تم إنشاء وصفة ${productName(recipe.productId)}`,
-        entityType: "recipe",
-        entityId: recipe.id,
       });
       setOpen(false);
       setForm(empty);
@@ -127,7 +116,7 @@ export default function RecipesPage() {
               </thead>
               <tbody>
                 {recipes.map((recipe) => {
-                  const cost = cafeOperationsService.getRecipeCost(recipe);
+                  const cost = recipe.ingredients.reduce((sum, ingredient) => sum + (inventory.find((item) => item.id === ingredient.inventoryItemId)?.averageCost ?? 0) * ingredient.quantity, 0);
                   const price =
                     products.find((item) => item.id === recipe.productId)
                       ?.price ?? 0;

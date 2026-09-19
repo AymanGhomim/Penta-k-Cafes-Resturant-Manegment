@@ -21,7 +21,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { formatMoney } from "@/lib/money";
 import { useTenant } from "@/providers/tenant-provider";
-import { cafeOperationsService } from "@/services/cafe-operations.service";
+import { inventoryApiService } from "@/services/inventory-api.service";
 import type { InventoryItem } from "@/types/cafe-operations.types";
 
 const blank = {
@@ -48,8 +48,7 @@ export default function InventoryPage() {
   const [saving, setSaving] = useState(false);
   const [target, setTarget] = useState<InventoryItem | null>(null);
   const [form, setForm] = useState(blank);
-  const reload = () =>
-    setItems(cafeOperationsService.get<InventoryItem>("inventory"));
+  const reload = () => { void inventoryApiService.list<InventoryItem>("inventory").then(setItems).catch(() => setItems([])); };
   useEffect(() => {
     reload();
     const handler = () => {
@@ -83,7 +82,7 @@ export default function InventoryPage() {
   const activeItems = items.filter((item) => item.active);
   const money = (value: number) =>
     formatMoney(value, tenant.settings.currencySymbol);
-  function save() {
+  async function save() {
     const quantity = Number(form.quantity);
     const minimumStock = Number(form.minimumStock);
     const averageCost = Number(form.averageCost);
@@ -99,7 +98,7 @@ export default function InventoryPage() {
     setSaving(true);
     try {
       const now = new Date().toISOString();
-      const item = cafeOperationsService.create<InventoryItem>("inventory", {
+      await inventoryApiService.create<InventoryItem>("inventory", {
         name: form.name.trim(),
         sku: form.sku.trim(),
         unit: form.unit.trim(),
@@ -109,13 +108,6 @@ export default function InventoryPage() {
         active: true,
         createdAt: now,
         updatedAt: now,
-      });
-      cafeOperationsService.audit({
-        module: "inventory",
-        action: "INVENTORY_ITEM_CREATED",
-        description: `تمت إضافة عنصر المخزون ${item.name}`,
-        entityType: "inventoryItem",
-        entityId: item.id,
       });
       setOpen(false);
       setForm(blank);
@@ -129,22 +121,7 @@ export default function InventoryPage() {
   }
   function disableTarget() {
     if (!target) return;
-    const next = items.map((item) =>
-      item.id === target.id
-        ? { ...item, active: false, updatedAt: new Date().toISOString() }
-        : item,
-    );
-    cafeOperationsService.save("inventory", next);
-    cafeOperationsService.audit({
-      module: "inventory",
-      action: "INVENTORY_ITEM_DISABLED",
-      description: `تم تعطيل عنصر المخزون ${target.name}`,
-      entityType: "inventoryItem",
-      entityId: target.id,
-    });
-    setTarget(null);
-    reload();
-    toast.success("تم تعطيل العنصر.");
+    void inventoryApiService.update<InventoryItem>(target.id, { active: false }).then(() => { setTarget(null); reload(); toast.success("تم تعطيل العنصر."); }).catch((error) => toast.error(error instanceof Error ? error.message : "تعذر تعطيل العنصر."));
   }
   const disableAction = (item: InventoryItem) => (
     <PermissionGate permission="inventory.adjust">

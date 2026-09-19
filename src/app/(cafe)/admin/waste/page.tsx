@@ -12,39 +12,45 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { cafeOperationsService } from "@/services/cafe-operations.service";
+import { inventoryApiService } from "@/services/inventory-api.service";
 import { useBranch } from "@/providers/branch-provider";
-import type { InventoryItem } from "@/types/cafe-operations.types";
+import type { InventoryItem, StockMovement, WasteRecord } from "@/types/cafe-operations.types";
 
 const empty = { inventoryItemId: "", quantity: "", reason: "", notes: "" };
 
 export default function WastePage() {
   const { branch } = useBranch();
-  const inventory = cafeOperationsService
-    .get<InventoryItem>("inventory")
-    .filter((item) => item.active);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(empty);
   useEffect(() => {
+    void inventoryApiService.list<InventoryItem>("inventory").then((items) => setInventory(items.filter((item) => item.active))).catch(() => setInventory([]));
     setOpen(false);
     setForm(empty);
   }, [branch?.id]);
   const selected = inventory.find((item) => item.id === form.inventoryItemId);
-  function save() {
+  async function save() {
     const quantity = Number(form.quantity);
     if (!form.inventoryItemId) return toast.error("اختر عنصر المخزون.");
     if (!form.reason.trim()) return toast.error("سبب الهالك مطلوب.");
     setSaving(true);
     try {
-      cafeOperationsService.recordWaste({
+      const movement = {
         inventoryItemId: form.inventoryItemId,
         quantity,
         unit: selected?.unit ?? "",
-        estimatedCost: 0,
+        quantityBefore: selected?.quantity ?? 0,
+        quantityAfter: Math.max(0, (selected?.quantity ?? 0) - quantity),
+        type: "WASTE" as const,
         reason: form.reason.trim(),
         notes: form.notes.trim(),
-      });
+      };
+      await inventoryApiService.create<WasteRecord>("waste", { inventoryItemId: form.inventoryItemId, quantity, unit: selected?.unit ?? "", estimatedCost: quantity * (selected?.averageCost ?? 0), reason: form.reason.trim(), notes: form.notes.trim() });
+      if (selected) {
+        await inventoryApiService.update<InventoryItem>(selected.id, { quantity: movement.quantityAfter });
+        await inventoryApiService.create<StockMovement>("stockMovements", movement);
+      }
       setOpen(false);
       setForm(empty);
       window.dispatchEvent(new Event("operations:changed"));
