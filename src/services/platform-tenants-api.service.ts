@@ -1,7 +1,7 @@
 import { DEFAULT_TENANT } from "@/config/tenants.config";
 import { API_ENDPOINTS } from "@/services/api-endpoints";
 import { httpClient } from "@/services/http-client";
-import type { Tenant } from "@/types/tenant.types";
+import type { Tenant, TenantBranch, TenantMenu } from "@/types/tenant.types";
 
 type BackendTenant = {
   id: string;
@@ -24,6 +24,8 @@ type BackendTenant = {
   users?: { name: string; email: string; username?: string | null; phone?: string | null }[];
   subscription?: { type: "TRIAL" | "PAID"; status: Tenant["subscriptionStatus"]; startsAt: string; endsAt?: string | null } | null;
   _count?: { branches: number; users: number };
+  branches?: (Omit<TenantBranch, "status"> & { isActive: boolean })[];
+  menus?: TenantMenu[];
 };
 
 type Envelope<T> = { success: boolean; data: T };
@@ -50,6 +52,8 @@ export function toFrontendTenant(item: BackendTenant): Tenant {
     features: item.features ? { ...DEFAULT_TENANT.features, ...item.features } : DEFAULT_TENANT.features,
     featureOverrides: item.featureOverrides ?? undefined,
     owner: item.users?.[0] ? { name: item.users[0].name, email: item.users[0].email, username: item.users[0].username ?? undefined, phone: item.users[0].phone ?? undefined } : undefined,
+    branches: item.branches?.map((branch) => ({ ...branch, status: branch.isActive ? "ACTIVE" : "INACTIVE" })),
+    menus: item.menus,
   };
 }
 

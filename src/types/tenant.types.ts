@@ -105,7 +105,12 @@ export type Tenant = {
   subscription?: { type: "TRIAL" | "PAID"; startsAt: string; endsAt: string };
   featureOverrides?: Partial<Record<string, boolean>>;
   maxBranchesOverride?: number;
+  branches?: TenantBranch[];
+  menus?: TenantMenu[];
 };
+
+export type TenantMenu = { id: string; name: string; description?: string | null; status?: string; branchId?: string | null };
+export type TenantBranch = { id: string; name: string; code?: string | null; phone?: string | null; address?: string | null; status: "ACTIVE" | "INACTIVE"; menuId?: string | null; menu?: TenantMenu | null; createdAt: string };
 
 export type TenantUserContext = {
   userId: string;
