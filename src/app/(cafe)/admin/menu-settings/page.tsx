@@ -10,15 +10,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { customerMenuSettingsService } from "@/services/customer-menu-settings.service";
-import { customerMenuSettingsApiService } from "@/services/customer-menu-settings-api.service";
+import { customerMenuSettingsApiService, defaultCustomerMenuSettings } from "@/services/customer-menu-settings-api.service";
 import type { CustomerMenuSettings } from "@/types/customer-menu-settings.types";
 
 const tabs = [["general", "عام", Globe2], ["dinein", "داخل الكافيه", MapPin], ["takeaway", "تيك أواي", ShoppingBag], ["delivery", "التوصيل", MapPin], ["payments", "الدفع", CreditCard]] as const;
 type Tab = (typeof tabs)[number][0];
 
 export default function MenuSettingsPage() {
-  const initial = customerMenuSettingsService.get();
+  const initial = defaultCustomerMenuSettings();
   const [tab, setTab] = useState<Tab>("general");
   const [settings, setSettings] = useState<CustomerMenuSettings>(initial);
   const [saved, setSaved] = useState<CustomerMenuSettings>(initial);
