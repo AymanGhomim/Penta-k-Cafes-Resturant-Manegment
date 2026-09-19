@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { customerMenuSettingsService } from "@/services/customer-menu-settings.service";
+import { customerMenuSettingsApiService } from "@/services/customer-menu-settings-api.service";
 import type { CustomerMenuSettings } from "@/types/customer-menu-settings.types";
 
 const tabs = [["general", "عام", Globe2], ["dinein", "داخل الكافيه", MapPin], ["takeaway", "تيك أواي", ShoppingBag], ["delivery", "التوصيل", MapPin], ["payments", "الدفع", CreditCard]] as const;
@@ -21,15 +22,15 @@ export default function MenuSettingsPage() {
   const [tab, setTab] = useState<Tab>("general");
   const [settings, setSettings] = useState<CustomerMenuSettings>(initial);
   const [saved, setSaved] = useState<CustomerMenuSettings>(initial);
-  const reload = () => { const value = customerMenuSettingsService.get(); setSettings(value); setSaved(value); };
+  const reload = () => { void customerMenuSettingsApiService.get().then((value) => { setSettings(value); setSaved(value); }).catch(() => undefined); };
   useEffect(() => {
     window.addEventListener("tenant:changed", reload);
     return () => window.removeEventListener("tenant:changed", reload);
   }, []);
   const toggle = (key: keyof CustomerMenuSettings) => setSettings((current) => ({ ...current, [key]: !current[key] }));
   const number = (key: "preparationMinutes" | "minimumDeliveryOrder" | "estimatedDeliveryMinutes", value: string) => setSettings((current) => ({ ...current, [key]: Number(value) }));
-  const save = () => {
-    try { const value = customerMenuSettingsService.save(settings); setSettings(value); setSaved(value); toast.success("تم حفظ إعدادات المنيو."); }
+  const save = async () => {
+    try { const value = await customerMenuSettingsApiService.save(settings); setSettings(value); setSaved(value); toast.success("تم حفظ إعدادات المنيو."); }
     catch (error) { toast.error(error instanceof Error ? error.message : "تعذر حفظ الإعدادات."); }
   };
   return (
