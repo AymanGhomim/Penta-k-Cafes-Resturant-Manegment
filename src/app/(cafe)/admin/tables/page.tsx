@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ClipboardList, Plus, QrCode, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -22,7 +22,7 @@ export default function TablesPage() {
   const [query, setQuery] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<Table | null>(null);
   const { tenant } = useTenant();
-  const reload = () => { const branchId = branchService.getActiveBranchId(tenant.id); if (!branchId) return setTables([]); void tableApiService.list(branchId).then(setTables).catch(() => { setTables([]); toast.error("تعذر تحميل طاولات الفرع من الخادم."); }); };
+  const reload = useCallback(() => { const branchId = branchService.getActiveBranchId(tenant.id); if (!branchId) return setTables([]); void tableApiService.list(branchId).then(setTables).catch(() => { setTables([]); toast.error("تعذر تحميل طاولات الفرع من الخادم."); }); }, [tenant.id]);
   useEffect(() => {
     reload();
     const handler = () => reload();
@@ -32,7 +32,7 @@ export default function TablesPage() {
       window.removeEventListener("tenant:changed", handler);
       window.removeEventListener("branch:changed", handler);
     };
-  }, []);
+  }, [reload]);
   const visible = useMemo(
     () =>
       tables.filter((table) => !query || String(table.number).includes(query)),

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/admin/admin-shell";
@@ -51,8 +51,8 @@ export default function ReportsPage() {
     };
   }, [branch?.id]);
   void revision;
-  const accessible = branch ? [branch] : [];
-  const filters: ReportFilters = {
+  const accessible = useMemo(() => (branch ? [branch] : []), [branch]);
+  const filters = useMemo<ReportFilters>(() => ({
     allowedBranchIds: accessible.map((branch) => branch.id),
     from: from || undefined,
     to: to || undefined,
@@ -64,12 +64,12 @@ export default function ReportsPage() {
     orderSource: source === "ALL" ? undefined : (source as OrderSource),
     paymentMethod:
       paymentMethod === "ALL" ? undefined : (paymentMethod as PaymentMethod),
-  };
+  }), [accessible, branch?.id, branchId, from, orderType, paymentMethod, source, to]);
   useEffect(() => {
     let active = true;
     void reportApiService.summary(filters).then((data) => { if (active) setRemote(data); }).catch(() => { if (active) setRemote(null); });
     return () => { active = false; };
-  }, [branchId, from, to, orderType, source, paymentMethod]);
+  }, [filters]);
   const remoteSales = remote?.sales ?? { grossSales: 0, discounts: 0, refunds: 0, netSales: 0, taxes: 0, serviceCharges: 0, deliveryFees: 0, orderCount: 0, averageOrder: 0, orders: [] };
   const remoteProducts = remote?.products ?? [];
   const remoteBreakdown = remote?.breakdown ?? { byType: [], bySource: [] };

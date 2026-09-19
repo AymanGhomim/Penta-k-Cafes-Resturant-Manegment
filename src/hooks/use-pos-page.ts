@@ -116,7 +116,7 @@ export function usePosPage() {
         error: error instanceof Error ? error.message : "تعذر حساب الطلب.",
       };
     }
-  }, [couponCode, customerId, deliveryZoneId, items, orderType]);
+  }, [couponCode, customerId, items]);
   const money = (value: number) =>
     formatMoney(value, tenant.settings.currencySymbol);
 
