@@ -204,8 +204,16 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
     };
     try {
       const remoteTenant = tenant
-        ? await platformTenantsApiService.update(tenant.id, payload)
-        : await platformTenantsApiService.create(payload);
+        ? await platformTenantsApiService.update(tenant.id, {
+            ...payload,
+            ownerPassword: draft.ownerPassword || undefined,
+            ownerUsername: draft.ownerUsername,
+          })
+        : await platformTenantsApiService.create({
+            ...payload,
+            ownerPassword: draft.ownerPassword,
+            ownerUsername: draft.ownerUsername,
+          });
       tenant
         ? tenantService.updateTenant(tenant.id, { ...payload, id: remoteTenant.id })
         : tenantService.createTenant({ ...payload, id: remoteTenant.id });
