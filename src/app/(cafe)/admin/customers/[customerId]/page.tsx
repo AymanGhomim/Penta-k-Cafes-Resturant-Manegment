@@ -20,9 +20,8 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatMoney } from "@/lib/money";
 import { useTenant } from "@/providers/tenant-provider";
-import { customerService } from "@/services/customer.service";
+import { customerLoyaltyApiService, type RemoteCustomer } from "@/services/customer-loyalty-api.service";
 import { financeService } from "@/services/finance.service";
-import type { Customer } from "@/types/cafe-operations.types";
 const blank = {
   label: "",
   address: "",
@@ -33,12 +32,12 @@ const blank = {
 export default function CustomerDetailsPage() {
   const params = useParams<{ customerId: string }>();
   const { tenant } = useTenant();
-  const [customer, setCustomer] = useState<Customer>();
+  const [customer, setCustomer] = useState<RemoteCustomer>();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(blank);
   const [removeId, setRemoveId] = useState<string | null>(null);
   const reload = useCallback(
-    () => setCustomer(customerService.getCustomer(params.customerId)),
+    () => { void customerLoyaltyApiService.findCustomer(params.customerId).then(setCustomer).catch(() => setCustomer(undefined)); },
     [params.customerId],
   );
   useEffect(() => {
@@ -57,13 +56,16 @@ export default function CustomerDetailsPage() {
         </div>
       </AdminShell>
     );
-  const analytics = customerService.getCustomerAnalytics(customer.id);
+  const analytics = customer.analytics;
   const payments = financeService
     .getPayments()
     .filter((p) => analytics.orders.some((o) => o.id === p.orderId));
-  function saveAddress() {
+  async function saveAddress() {
     try {
-      customerService.saveAddress(customer!.id, form);
+      const address = { ...form, id: `address-${Date.now()}` };
+      const addresses = [...(customer!.addresses ?? [])].filter((item) => item.id !== address.id);
+      const nextAddresses = address.isDefault || !addresses.length ? [...addresses.map((item) => ({ ...item, isDefault: false })), address] : [...addresses, address];
+      await customerLoyaltyApiService.updateAddresses(customer!.id, nextAddresses);
       setOpen(false);
       setForm(blank);
       reload();
@@ -72,8 +74,8 @@ export default function CustomerDetailsPage() {
       toast.error(error instanceof Error ? error.message : "تعذر حفظ العنوان.");
     }
   }
-  function remove() {
-    if (removeId) customerService.removeAddress(customer!.id, removeId);
+  async function remove() {
+    if (removeId) await customerLoyaltyApiService.updateAddresses(customer!.id, (customer!.addresses ?? []).filter((item) => item.id !== removeId));
     setRemoveId(null);
     reload();
     toast.success("تم حذف العنوان.");
@@ -109,7 +111,7 @@ export default function CustomerDetailsPage() {
             ],
             [
               "نقاط الولاء",
-              String(customerService.getLoyaltyBalance(customer.id)),
+              String(customer.loyaltyBalance),
             ],
           ].map(([label, value]) => (
             <Card key={label}>
@@ -207,7 +209,7 @@ export default function CustomerDetailsPage() {
             <Card>
               <CardContent className="p-8 text-center">
                 <b className="text-3xl">
-                  {customerService.getLoyaltyBalance(customer.id)}
+                  {customer.loyaltyBalance}
                 </b>
                 <p className="text-sm text-muted-foreground">نقطة متاحة</p>
               </CardContent>

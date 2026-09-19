@@ -21,30 +21,28 @@ import { Pagination } from "@/components/shared/pagination";
 import { SearchInput } from "@/components/shared/search-input";
 import { usePagination } from "@/hooks/use-pagination";
 import { useTenant } from "@/providers/tenant-provider";
-import { cafeOperationsService } from "@/services/cafe-operations.service";
-import { customerService } from "@/services/customer.service";
-import type { Customer } from "@/types/cafe-operations.types";
+import { customerLoyaltyApiService, type RemoteCustomer } from "@/services/customer-loyalty-api.service";
 const empty = { name: "", phone: "", email: "", address: "" };
 export default function CustomersPage() {
   const { tenant } = useTenant();
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customers, setCustomers] = useState<RemoteCustomer[]>([]);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof typeof empty, string>>>({});
-  const reload = () => setCustomers(customerService.getCustomers());
+  const reload = async () => { try { setCustomers(await customerLoyaltyApiService.listCustomers()); } catch (error) { toast.error(error instanceof Error ? error.message : "تعذر تحميل العملاء."); } };
   useEffect(() => {
-    reload();
+    void reload();
     const reset = () => {
       reload();
       setOpen(false);
       setQuery("");
     };
-    window.addEventListener("operations:changed", reload);
+    window.addEventListener("operations:changed", () => void reload());
     window.addEventListener("tenant:changed", reset);
     return () => {
-      window.removeEventListener("operations:changed", reload);
+      window.removeEventListener("operations:changed", () => void reload());
       window.removeEventListener("tenant:changed", reset);
     };
   }, []);
@@ -58,7 +56,7 @@ export default function CustomersPage() {
     [customers, query],
   );
   const pagination = usePagination(filtered, query);
-  function save() {
+  async function save() {
     const errors: typeof formErrors = {};
     if (!form.name.trim()) errors.name = "اسم العميل مطلوب";
     if (form.phone.trim() && !/^\+?[0-9\s()-]{7,20}$/.test(form.phone.trim())) errors.phone = "رقم الهاتف غير صحيح";
@@ -67,23 +65,11 @@ export default function CustomersPage() {
     if (Object.keys(errors).length) return;
     setSaving(true);
     try {
-      const customer = cafeOperationsService.create<Customer>("customers", {
-      ...form,
-      name: form.name.trim(),
-      active: true,
-      createdAt: new Date().toISOString(),
-    });
-      cafeOperationsService.audit({
-      module: "customers",
-      action: "CUSTOMER_CREATED",
-      description: `تمت إضافة العميل ${customer.name}`,
-      entityType: "customer",
-      entityId: customer.id,
-    });
+      await customerLoyaltyApiService.createCustomer({ ...form, name: form.name.trim() });
       setOpen(false);
       setForm(empty);
       setFormErrors({});
-      reload();
+      await reload();
       toast.success("تمت إضافة العميل بنجاح");
     } finally {
       setSaving(false);
@@ -138,9 +124,7 @@ export default function CustomersPage() {
                 </thead>
                 <tbody>
                   {pagination.items.map((customer) => {
-                    const analytics = customerService.getCustomerAnalytics(
-                      customer.id,
-                    );
+                    const analytics = customer.analytics;
                     return (
                       <tr key={customer.id} className="border-t">
                         <td className="px-4 py-3 font-bold">{customer.name}</td>
@@ -159,7 +143,7 @@ export default function CustomersPage() {
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          {customerService.getLoyaltyBalance(customer.id)}
+                          {customer.loyaltyBalance}
                         </td>
                         <td className="px-4 py-3">
                           {analytics.lastVisit

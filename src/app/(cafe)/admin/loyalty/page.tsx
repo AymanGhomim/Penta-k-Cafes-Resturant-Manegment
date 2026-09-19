@@ -14,18 +14,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { customerService } from "@/services/customer.service";
-import { cafeOperationsService } from "@/services/cafe-operations.service";
+import { customerLoyaltyApiService } from "@/services/customer-loyalty-api.service";
 import type {
   LoyaltySettings,
-  LoyaltyTransaction,
 } from "@/types/cafe-operations.types";
 export default function LoyaltyPage() {
   const [revision, setRevision] = useState(0);
   const [open, setOpen] = useState(false);
-  const [settings, setSettings] = useState<
-    LoyaltySettings | ReturnType<typeof customerService.getLoyaltySettings>
-  >(customerService.getLoyaltySettings());
+  const [settings, setSettings] = useState<LoyaltySettings>({ id: "", tenantId: "", enabled: false, spendAmountPerPoint: 10, pointRedemptionValue: 0.1, minimumRedeemPoints: 100, updatedAt: new Date(0).toISOString() });
+  const [customers, setCustomers] = useState<Array<{ id: string; name: string }>>([]);
+  const [transactions, setTransactions] = useState<Array<{ id: string; customerId: string; type: "EARN" | "REDEEM" | "ADJUSTMENT" | "EXPIRED"; points: number; orderId?: string; notes?: string; createdAt: string }>>([]);
   const [form, setForm] = useState({
     enabled: false,
     spendAmountPerPoint: "10",
@@ -35,17 +33,14 @@ export default function LoyaltyPage() {
     expiryDays: "",
   });
   useEffect(() => {
-    const reload = () => {
-      setRevision((v) => v + 1);
-      setSettings(customerService.getLoyaltySettings());
+    const reload = async () => {
+      try { const [nextSettings, nextTransactions, nextCustomers] = await Promise.all([customerLoyaltyApiService.getLoyaltySettings(), customerLoyaltyApiService.listLoyaltyTransactions(), customerLoyaltyApiService.listCustomers()]); setRevision((v) => v + 1); setSettings(nextSettings); setTransactions(nextTransactions); setCustomers(nextCustomers); } catch (error) { toast.error(error instanceof Error ? error.message : "تعذر تحميل بيانات الولاء."); }
     };
-    reload();
+    void reload();
     window.addEventListener("operations:changed", reload);
     return () => window.removeEventListener("operations:changed", reload);
   }, []);
   void revision;
-  const customers = customerService.getCustomers();
-  const transactions = cafeOperationsService.get<LoyaltyTransaction>("loyalty");
   function edit() {
     setForm({
       enabled: settings.enabled,
@@ -61,9 +56,9 @@ export default function LoyaltyPage() {
     });
     setOpen(true);
   }
-  function save() {
+  async function save() {
     try {
-      customerService.saveLoyaltySettings({
+      await customerLoyaltyApiService.updateLoyaltySettings({
         enabled: form.enabled,
         spendAmountPerPoint: Number(form.spendAmountPerPoint),
         pointRedemptionValue: Number(form.pointRedemptionValue),
@@ -74,7 +69,7 @@ export default function LoyaltyPage() {
         expiryDays: form.expiryDays ? Number(form.expiryDays) : undefined,
       });
       setOpen(false);
-      setSettings(customerService.getLoyaltySettings());
+      setSettings(await customerLoyaltyApiService.getLoyaltySettings());
       toast.success("تم حفظ إعدادات الولاء.");
     } catch (error) {
       toast.error(
