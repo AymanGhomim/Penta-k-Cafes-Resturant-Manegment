@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Building2,
   Eye,
-  ExternalLink,
   LayoutDashboard,
   Palette,
   Pencil,
@@ -24,9 +23,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { usePagination } from "@/hooks/use-pagination";
 import { formatDate } from "@/lib/formatters";
-import { tenantService } from "@/services/tenant.service";
-import { branchService } from "@/services/branch.service";
-import type { TenantStatus } from "@/types/tenant.types";
+import type { Tenant, TenantStatus } from "@/types/tenant.types";
 import { platformTenantsApiService } from "@/services/platform-tenants-api.service";
 import { toast } from "sonner";
 
@@ -37,29 +34,16 @@ const statusLabels: Record<TenantStatus, string> = {
   ARCHIVED: "منتهي",
 };
 
-function getCustomerMenuHref(tenantId: string) {
-  const branch = branchService
-    .getBranches(tenantId)
-    .find((item) => item.status === "ACTIVE" && item.menuId);
-  return branch
-    ? `/menu?tenantId=${encodeURIComponent(tenantId)}&branchId=${encodeURIComponent(branch.id)}`
-    : null;
-}
-
 export default function PlatformTenantsPage() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("ALL");
   const [plan, setPlan] = useState("ALL");
-  const [tenants, setTenants] = useState<ReturnType<typeof tenantService.listTenants>>([]);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
   const debouncedQuery = useDebouncedValue(query);
   useEffect(() => {
     void platformTenantsApiService.list()
       .then((remote) => {
         setTenants(remote);
-        remote.forEach((tenant) => {
-          if (tenantService.getTenant(tenant.id)) tenantService.updateTenant(tenant.id, tenant);
-          else tenantService.createTenant(tenant);
-        });
       })
       .catch(() => setTenants([]));
   }, []);
@@ -84,7 +68,6 @@ export default function PlatformTenantsPage() {
   };
 
   const openCafeDashboard = (tenantId: string) => {
-    tenantService.selectDevelopmentTenant(tenantId);
     window.location.assign(
       `/admin/dashboard?tenantId=${encodeURIComponent(tenantId)}`,
     );
@@ -213,25 +196,6 @@ export default function PlatformTenantsPage() {
                 <td className="p-4">{formatDate(tenant.createdAt)}</td>
                 <td className="p-3">
                   <div className="flex items-center gap-1">
-                    {getCustomerMenuHref(tenant.id) ? (
-                      <Button
-                        asChild
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="h-8 gap-1.5 px-3 text-xs"
-                      >
-                        <Link
-                          href={getCustomerMenuHref(tenant.id)!}
-                          target="_blank"
-                          rel="noreferrer"
-                          title={`فتح منيو العميل لـ ${tenant.name}`}
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                          منيو العميل
-                        </Link>
-                      </Button>
-                    ) : null}
                     <Button
                       type="button"
                       size="sm"

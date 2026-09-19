@@ -26,7 +26,6 @@ import {
 } from "@/config/plans.config";
 import { normalizeTenantBranding } from "@/lib/tenant-branding";
 import { credentialService } from "@/services/credential.service";
-import { tenantService } from "@/services/tenant.service";
 import type { FeatureKey } from "@/types/platform.types";
 import type { Tenant, TenantBranding } from "@/types/tenant.types";
 import { platformTenantsApiService } from "@/services/platform-tenants-api.service";
@@ -217,9 +216,6 @@ export function TenantForm({ tenant }: { tenant?: Tenant }) {
             ownerPassword: draft.ownerPassword,
             ownerUsername: draft.ownerUsername,
           });
-      tenant
-        ? tenantService.updateTenant(tenant.id, { ...payload, id: remoteTenant.id })
-        : tenantService.createTenant({ ...payload, id: remoteTenant.id });
       await credentialService.provisionOwner(payload.id, {
         name: draft.ownerName,
         email: draft.ownerEmail,
