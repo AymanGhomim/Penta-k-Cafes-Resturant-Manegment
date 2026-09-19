@@ -11,9 +11,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { formatMoney } from "@/lib/money";
-import { financeService } from "@/services/finance.service";
+import type { PaymentRecord, RefundRecord } from "@/types/cafe-operations.types";
 
-type Details = NonNullable<ReturnType<typeof financeService.getPaymentDetails>>;
+type Details = { payment: PaymentRecord; order?: { orderNumber: string; customerName?: string }; refunds: RefundRecord[]; totalRefunded: number; remainingRefundable: number; status: PaymentRecord["status"] };
 function Info({ label, value }: { label: string; value: string }) {
   return (
     <div>

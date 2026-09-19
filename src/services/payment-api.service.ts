@@ -1,9 +1,9 @@
 import { httpClient } from "@/services/http-client";
 import type { PaymentRecord } from "@/types/cafe-operations.types";
 
-type BackendPayment = { id: string; tenantId: string; orderId: string; transactionNumber: string; amount: string | number; method: PaymentRecord["method"]; status: PaymentRecord["status"]; transactionReference?: string | null; refundAmount?: string | number; createdAt: string };
+type BackendPayment = { id: string; tenantId: string; orderId: string; transactionNumber: string; amount: string | number; method: PaymentRecord["method"]; status: PaymentRecord["status"]; transactionReference?: string | null; refundAmount?: string | number; createdAt: string; order?: { orderNumber: string; customerName?: string | null; total?: string | number } };
 type Envelope<T> = { success: boolean; data: T };
-const mapPayment = (item: BackendPayment): PaymentRecord => ({ id: item.id, tenantId: item.tenantId, orderId: item.orderId, transactionNumber: item.transactionNumber, amount: Number(item.amount), method: item.method, status: item.status, transactionReference: item.transactionReference ?? undefined, createdAt: item.createdAt });
+const mapPayment = (item: BackendPayment): PaymentRecord => ({ id: item.id, tenantId: item.tenantId, orderId: item.orderId, transactionNumber: item.transactionNumber, amount: Number(item.amount), method: item.method, status: item.status, transactionReference: item.transactionReference ?? undefined, refundAmount: Number(item.refundAmount ?? 0), orderNumber: item.order?.orderNumber, customerName: item.order?.customerName ?? undefined, orderTotal: item.order?.total == null ? undefined : Number(item.order.total), createdAt: item.createdAt });
 
 export const paymentApiService = {
   async list() { const response = await httpClient.get<Envelope<BackendPayment[]>>("/cafe/payments"); return response.data.data.map(mapPayment); },

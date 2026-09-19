@@ -7,7 +7,6 @@ import type { PaginationState } from "@/hooks/use-pagination";
 import { formatDateTime } from "@/lib/formatters";
 import { formatMoney } from "@/lib/money";
 import type { PaymentRecord } from "@/types/cafe-operations.types";
-import type { Order } from "@/types/order.types";
 
 export function PaymentsTable({
   payments,
@@ -20,7 +19,7 @@ export function PaymentsTable({
   onView,
 }: {
   payments: PaymentRecord[];
-  orders: Map<string, Order | undefined>;
+  orders: Map<string, { orderNumber: string; customerName?: string } | undefined>;
   branches: Map<string, string>;
   employees: Map<string, string>;
   customers: Map<string, string>;

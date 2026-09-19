@@ -17,7 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { formatMoney } from "@/lib/money";
 import { useTenant } from "@/providers/tenant-provider";
-import { financeService } from "@/services/finance.service";
+import { financeApiService, type CashSummary } from "@/services/finance-api.service";
 import type { CashRegisterEntry } from "@/types/cafe-operations.types";
 const labels: Record<CashRegisterEntry["type"], string> = {
   OPENING_BALANCE: "رصيد افتتاحي",
@@ -30,22 +30,21 @@ const labels: Record<CashRegisterEntry["type"], string> = {
 };
 export default function CashRegisterPage() {
   const { tenant } = useTenant();
-  const [revision, setRevision] = useState(0);
+  const [summary, setSummary] = useState<CashSummary>({ openingBalance: 0, cashSales: 0, cashIn: 0, cashOut: 0, expenses: 0, refunds: 0, adjustments: 0, expectedBalance: 0, entries: [] });
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<"CASH_IN" | "CASH_OUT">("CASH_IN");
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
   useEffect(() => {
-    const reload = () => setRevision((v) => v + 1);
+    const reload = () => { void financeApiService.getCashSummary().then(setSummary).catch(() => setSummary((current) => current)); };
+    reload();
     window.addEventListener("operations:changed", reload);
     return () => window.removeEventListener("operations:changed", reload);
   }, []);
-  void revision;
-  const summary = financeService.getCashSummary();
   const money = (v: number) => formatMoney(v, tenant.settings.currencySymbol);
-  function save() {
+  async function save() {
     try {
-      financeService.createCashMovement({
+      await financeApiService.createCashMovement({
         type,
         amount: Number(amount),
         reason,
@@ -53,6 +52,8 @@ export default function CashRegisterPage() {
       setOpen(false);
       setAmount("");
       setReason("");
+      const next = await financeApiService.getCashSummary();
+      setSummary(next);
       toast.success("تم تسجيل الحركة النقدية.");
     } catch (error) {
       toast.error(

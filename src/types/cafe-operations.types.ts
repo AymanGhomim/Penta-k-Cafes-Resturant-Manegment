@@ -102,6 +102,10 @@ export type PaymentRecord = OperationRecord & {
   changeAmount?: number;
   status: "PAID" | "PENDING" | "FAILED" | "PARTIALLY_REFUNDED" | "REFUNDED";
   transactionReference?: string;
+  refundAmount?: number;
+  orderNumber?: string;
+  customerName?: string;
+  orderTotal?: number;
   createdAt: string;
 };
 export type RefundRecord = OperationRecord & {

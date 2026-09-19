@@ -90,10 +90,11 @@ export function AdminModulePage({
   const pathname = usePathname();
   const { hasPermission } = useCurrentEmployee();
   const resource = resources[pathname.split("/").filter(Boolean).pop() || ""];
+  const usesExternalRows = rows !== EMPTY_ROWS;
   const [records, setRecords] = useState<AdminModuleRow[]>([]);
   const [query, setQuery] = useState("");
   const reload = useCallback(() => {
-    if (!resource) return setRecords(rows);
+    if (usesExternalRows || !resource) return setRecords(rows);
     const data = cafeOperationsService.get(resource);
     setRecords(
       data.map((record) => ({
@@ -117,7 +118,7 @@ export function AdminModulePage({
           record.active === false ? "غير نشط" : String(record.status ?? "نشط"),
       })),
     );
-  }, [resource, rows]);
+  }, [resource, rows, usesExternalRows]);
   useEffect(() => {
     reload();
     const h = () => {

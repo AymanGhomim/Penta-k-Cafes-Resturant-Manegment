@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { financeService } from "@/services/finance.service";
+import { financeApiService } from "@/services/finance-api.service";
 import type { Expense } from "@/types/cafe-operations.types";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 
@@ -30,10 +30,14 @@ export default function ExpensesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [removeId, setRemoveId] = useState<string | null>(null);
   const [form, setForm] = useState(blank);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const reload = () => { void financeApiService.listExpenses().then(setExpenses).catch(() => setExpenses([])); };
   useEffect(() => {
+    reload();
     const reset = () => {
       setOpen(false);
       setForm(blank());
+      reload();
     };
     window.addEventListener("tenant:changed", reset);
     window.addEventListener("branch:changed", reset);
@@ -42,7 +46,7 @@ export default function ExpensesPage() {
       window.removeEventListener("branch:changed", reset);
     };
   }, []);
-  function save() {
+  async function save() {
     const amount = Number(form.amount);
     if (!form.category.trim()) return toast.error("تصنيف المصروف مطلوب.");
     if (!Number.isFinite(amount) || amount <= 0)
@@ -57,11 +61,12 @@ export default function ExpensesPage() {
         notes: form.notes.trim(),
         paymentMethod: form.paymentMethod,
       };
-      if (editingId) financeService.updateExpense(editingId, value);
-      else financeService.createExpense(value);
+      if (editingId) await financeApiService.updateExpense(editingId, value);
+      else await financeApiService.createExpense(value);
       setOpen(false);
       setForm(blank());
       setEditingId(null);
+      reload();
       window.dispatchEvent(new Event("operations:changed"));
       toast.success(
         editingId ? "تم تحديث المصروف بنجاح." : "تم تسجيل المصروف بنجاح.",
@@ -87,9 +92,7 @@ export default function ExpensesPage() {
           setOpen(true);
         }}
         onEdit={(id) => {
-          const record = financeService
-            .getExpenses()
-            .find((item) => item.id === id);
+          const record = expenses.find((item) => item.id === id);
           if (!record) return;
           setEditingId(id);
           setForm({
@@ -102,6 +105,13 @@ export default function ExpensesPage() {
           setOpen(true);
         }}
         onDelete={setRemoveId}
+        rows={expenses.map((record) => ({
+          id: record.id,
+          title: record.category,
+          meta: `${record.date} · ${record.paymentMethod === "CASH" ? "نقدي" : record.paymentMethod ?? "—"}`,
+          value: `${record.amount}`,
+          status: "مسجل",
+        }))}
       />
       <Dialog
         open={open}
@@ -206,9 +216,10 @@ export default function ExpensesPage() {
         title="حذف المصروف؟"
         description="سيتم حذف حركة الخزنة المرتبطة إذا كان المصروف نقديًا."
         confirmLabel="حذف"
-        onConfirm={() => {
-          if (removeId) financeService.removeExpense(removeId);
+        onConfirm={async () => {
+          if (removeId) await financeApiService.removeExpense(removeId);
           setRemoveId(null);
+          reload();
           toast.success("تم حذف المصروف.");
         }}
       />
