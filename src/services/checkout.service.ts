@@ -7,7 +7,6 @@ import type { CartItem } from "@/types/cart.types";
 import type {
   Coupon,
   Customer,
-  DeliveryZone,
   InventoryItem,
   PaymentRecord,
   Recipe,
@@ -112,7 +111,6 @@ export const checkoutService = {
   calculate(
     items: CartItem[],
     couponCode?: string,
-    deliveryZoneId?: string,
     customerId?: string,
   ): { items: OrderItem[]; totals: CheckoutTotals; coupon?: Coupon } {
     const { tenantId } = activeContext();
@@ -182,13 +180,7 @@ export const checkoutService = {
       subtotal - discount,
       settings.serviceCharge,
     );
-    const zone = deliveryZoneId
-      ? cafeOperationsService
-          .get<DeliveryZone>("deliveryZones")
-          .find((item) => item.id === deliveryZoneId && item.active)
-      : undefined;
-    if (deliveryZoneId && !zone) throw new Error("منطقة التوصيل غير صالحة.");
-    const deliveryFee = roundMoney(Number(zone?.fee ?? 0));
+    const deliveryFee = 0;
     const total = roundMoney(
       subtotal - discount + tax + serviceCharge + deliveryFee,
     );
@@ -215,8 +207,8 @@ export const checkoutService = {
     if (input.expectedTenantId && input.expectedTenantId !== tenantId) throw new Error("سياق الكافيه غير صحيح.");
     if (input.expectedBranchId && input.expectedBranchId !== branchId) throw new Error("سياق الفرع غير صحيح.");
     const table = input.tableId ? cafeDataService.getTables().find((item) => item.id === input.tableId) : undefined;
-    const { items, totals } = this.calculate(input.items, input.couponCode, input.orderType === "DELIVERY" ? input.deliveryZoneId : undefined, input.customerId);
-    const order = await orderApiService.create({ branchId, orderType: input.orderType, source: input.source ?? "POS", tableNumber: table?.number, customerId: input.customerId, couponCode: input.couponCode, customerName: input.customerName, customerPhone: input.customerPhone, customerAddress: input.customerAddress, customerNotes: input.customerNotes, discount: totals.discount, tax: totals.tax, serviceCharge: totals.serviceCharge, deliveryFee: totals.deliveryFee, paymentMethod: input.paymentMethod, paymentStatus: input.deferPayment ? "PENDING" : "PAID", items: items.map(apiItem) });
+    const { items, totals } = this.calculate(input.items, input.couponCode, input.customerId);
+    const order = await orderApiService.create({ branchId, orderType: input.orderType, source: input.source ?? "POS", tableNumber: table?.number, customerId: input.customerId, couponCode: input.couponCode, deliveryZoneId: input.deliveryZoneId, customerName: input.customerName, customerPhone: input.customerPhone, customerAddress: input.customerAddress, customerNotes: input.customerNotes, discount: totals.discount, tax: totals.tax, serviceCharge: totals.serviceCharge, deliveryFee: totals.deliveryFee, paymentMethod: input.paymentMethod, paymentStatus: input.deferPayment ? "PENDING" : "PAID", items: items.map(apiItem) });
     if (!input.deferPayment) await paymentApiService.create({ orderId: order.id, amount: order.total, method: input.paymentMethod });
     return { order };
   },
@@ -246,7 +238,6 @@ export const checkoutService = {
     const { items, totals } = this.calculate(
       input.items,
       input.couponCode,
-      input.orderType === "DELIVERY" ? input.deliveryZoneId : undefined,
       input.customerId,
     );
     const timestamp = new Date().toISOString();

@@ -106,7 +106,6 @@ export function usePosPage() {
         result: checkoutService.calculate(
           items,
           couponCode || undefined,
-          orderType === "DELIVERY" ? deliveryZoneId || undefined : undefined,
           customerId || undefined,
         ),
         error: "",
