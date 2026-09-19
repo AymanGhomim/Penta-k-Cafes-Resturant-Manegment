@@ -3,11 +3,7 @@ import { useEffect, useState } from "react";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/admin/admin-shell";
-import {
-  EmployeeReport,
-  ReportMetricGrid as MetricGrid,
-  ReportTable,
-} from "@/components/features/reports/report-data-display";
+import { ReportMetricGrid as MetricGrid, ReportTable } from "@/components/features/reports/report-data-display";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatMoney } from "@/lib/money";
 import { useBranch } from "@/providers/branch-provider";
 import { useTenant } from "@/providers/tenant-provider";
-import { reportService, type ReportFilters } from "@/services/report.service";
+import type { ReportFilters } from "@/services/report.service";
 import { reportApiService, type RemoteReport } from "@/services/report-api.service";
 import type {
   OrderSource,
@@ -74,16 +70,12 @@ export default function ReportsPage() {
     void reportApiService.summary(filters).then((data) => { if (active) setRemote(data); }).catch(() => { if (active) setRemote(null); });
     return () => { active = false; };
   }, [branchId, from, to, orderType, source, paymentMethod]);
-  const sales = reportService.sales(filters);
-  const profit = reportService.profit(filters);
-  const products = reportService.products(filters);
-  const breakdown = reportService.orderBreakdown(filters);
-  const payments = reportService.payments(filters);
-  const inventory = reportService.inventory(filters);
-  const remoteSales = remote?.sales ?? sales;
-  const remoteProducts = remote?.products ?? products;
-  const remoteBreakdown = remote?.breakdown ?? breakdown;
-  const remotePayments = remote?.payments ?? payments;
+  const remoteSales = remote?.sales ?? { grossSales: 0, discounts: 0, refunds: 0, netSales: 0, taxes: 0, serviceCharges: 0, deliveryFees: 0, orderCount: 0, averageOrder: 0, orders: [] };
+  const remoteProducts = remote?.products ?? [];
+  const remoteBreakdown = remote?.breakdown ?? { byType: [], bySource: [] };
+  const remotePayments = remote?.payments ?? [];
+  const profit = remote?.profit ?? { revenue: 0, cogs: 0, grossProfit: 0, expenses: 0, netProfit: 0 };
+  const inventory = remote?.inventory ?? { value: 0, lowStock: 0, outOfStock: 0, purchases: 0, waste: 0, saleConsumption: 0, adjustments: 0 };
   const money = (v: number) => formatMoney(v, tenant.settings.currencySymbol);
   function exportCsv() {
     try {
@@ -97,7 +89,7 @@ export default function ReportsPage() {
         total: o.total,
         status: o.status,
       }));
-      const csv = reportService.toCsv(rows);
+      const csv = toCsv(rows);
       const url = URL.createObjectURL(
         new Blob([csv], { type: "text/csv;charset=utf-8" }),
       );
@@ -282,7 +274,7 @@ export default function ReportsPage() {
             />
           </TabsContent>
           <TabsContent value="employees">
-            <EmployeeReport filters={filters} />
+            <ReportTable headers={["الموظف", "المعرف"]} rows={(remote?.employees ?? []).map((employee) => [employee.name, employee.id])} />
           </TabsContent>
         </Tabs>
         {!remoteSales.orders.length ? (
@@ -293,4 +285,10 @@ export default function ReportsPage() {
       </section>
     </AdminShell>
   );
+}
+
+function toCsv(rows: Record<string, unknown>[]) {
+  if (!rows.length) return "";
+  const headers = Object.keys(rows[0]);
+  return [headers, ...rows.map((row) => headers.map((header) => row[header] ?? ""))].map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(",")).join("\n");
 }

@@ -7,6 +7,9 @@ export type RemoteReport = {
   products: { productId: string; name: string; quantity: number; revenue: number }[];
   breakdown: { byType: { value: string; count: number }[]; bySource: { value: string; count: number }[] };
   payments: { method: string; amount: number; count: number; percentage: number }[];
+  profit: { revenue: number; cogs: number; grossProfit: number; expenses: number; netProfit: number };
+  inventory: { value: number; lowStock: number; outOfStock: number; purchases: number; waste: number; saleConsumption: number; adjustments: number };
+  employees: { id: string; name: string }[];
 };
 
 export const reportApiService = {
