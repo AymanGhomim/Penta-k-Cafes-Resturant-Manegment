@@ -12,6 +12,7 @@ export const API_ENDPOINTS = {
     products: "/cafe/products",
     menus: "/cafe/menus",
     dashboard: "/cafe/dashboard",
+    reports: "/cafe/reports",
   },
   menu: {
     public: "/public/menu",

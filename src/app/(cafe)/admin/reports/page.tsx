@@ -18,6 +18,7 @@ import { useCurrentEmployee } from "@/providers/current-employee-provider";
 import { useTenant } from "@/providers/tenant-provider";
 import { employeeService } from "@/services/employee.service";
 import { reportService, type ReportFilters } from "@/services/report.service";
+import { reportApiService, type RemoteReport } from "@/services/report-api.service";
 import type {
   OrderSource,
   OrderType,
@@ -41,6 +42,7 @@ export default function ReportsPage() {
   const [orderType, setOrderType] = useState("ALL");
   const [source, setSource] = useState("ALL");
   const [paymentMethod, setPaymentMethod] = useState("ALL");
+  const [remote, setRemote] = useState<RemoteReport | null>(null);
   useEffect(() => {
     const reset = () => {
       setRevision((v) => v + 1);
@@ -74,12 +76,21 @@ export default function ReportsPage() {
     paymentMethod:
       paymentMethod === "ALL" ? undefined : (paymentMethod as PaymentMethod),
   };
+  useEffect(() => {
+    let active = true;
+    void reportApiService.summary(filters).then((data) => { if (active) setRemote(data); }).catch(() => { if (active) setRemote(null); });
+    return () => { active = false; };
+  }, [branchId, from, to, orderType, source, paymentMethod]);
   const sales = reportService.sales(filters);
   const profit = reportService.profit(filters);
   const products = reportService.products(filters);
   const breakdown = reportService.orderBreakdown(filters);
   const payments = reportService.payments(filters);
   const inventory = reportService.inventory(filters);
+  const remoteSales = remote?.sales ?? sales;
+  const remoteProducts = remote?.products ?? products;
+  const remoteBreakdown = remote?.breakdown ?? breakdown;
+  const remotePayments = remote?.payments ?? payments;
   const money = (v: number) => formatMoney(v, tenant.settings.currencySymbol);
   function exportCsv() {
     try {
@@ -123,7 +134,7 @@ export default function ReportsPage() {
           </div>
           <Button
             variant="outline"
-            disabled={!sales.orders.length}
+            disabled={!remoteSales.orders.length}
             onClick={exportCsv}
           >
             <Download className="ml-2 h-4 w-4" />
@@ -204,15 +215,15 @@ export default function ReportsPage() {
           <TabsContent value="sales">
             <MetricGrid
               values={[
-                ["إجمالي المبيعات", money(sales.grossSales)],
-                ["الخصومات", money(sales.discounts)],
-                ["الاسترجاعات", money(sales.refunds)],
-                ["صافي المبيعات", money(sales.netSales)],
-                ["الضرائب", money(sales.taxes)],
-                ["رسوم الخدمة", money(sales.serviceCharges)],
-                ["رسوم التوصيل", money(sales.deliveryFees)],
-                ["عدد الطلبات", String(sales.orderCount)],
-                ["متوسط الطلب", money(sales.averageOrder)],
+                ["إجمالي المبيعات", money(remoteSales.grossSales)],
+                ["الخصومات", money(remoteSales.discounts)],
+                ["الاسترجاعات", money(remoteSales.refunds)],
+                ["صافي المبيعات", money(remoteSales.netSales)],
+                ["الضرائب", money(remoteSales.taxes)],
+                ["رسوم الخدمة", money(remoteSales.serviceCharges)],
+                ["رسوم التوصيل", money(remoteSales.deliveryFees)],
+                ["عدد الطلبات", String(remoteSales.orderCount)],
+                ["متوسط الطلب", money(remoteSales.averageOrder)],
               ]}
             />
           </TabsContent>
@@ -234,7 +245,7 @@ export default function ReportsPage() {
           <TabsContent value="products">
             <ReportTable
               headers={["المنتج", "الكمية المباعة", "الإيراد"]}
-              rows={products.map((p) => [
+              rows={remoteProducts.map((p) => [
                 p.name,
                 String(p.quantity),
                 money(p.revenue),
@@ -245,19 +256,19 @@ export default function ReportsPage() {
             <div className="grid gap-4 xl:grid-cols-2">
               <ReportTable
                 headers={["نوع الطلب", "العدد"]}
-                rows={breakdown.byType.map((r) => [r.value, String(r.count)])}
+                rows={remoteBreakdown.byType.map((r) => [r.value, String(r.count)])}
               />
               <ReportTable
                 headers={["مصدر الطلب", "العدد"]}
-                rows={breakdown.bySource.map((r) => [r.value, String(r.count)])}
+                rows={remoteBreakdown.bySource.map((r) => [r.value, String(r.count)])}
               />
             </div>
           </TabsContent>
           <TabsContent value="payments">
             <ReportTable
               headers={["طريقة الدفع", "المبلغ", "العدد", "النسبة"]}
-              rows={payments.map((p) => [
-                methodLabels[p.method],
+              rows={remotePayments.map((p) => [
+                methodLabels[p.method as keyof typeof methodLabels],
                 money(p.amount),
                 String(p.count),
                 `${p.percentage}%`,
@@ -281,7 +292,7 @@ export default function ReportsPage() {
             <EmployeeReport filters={filters} />
           </TabsContent>
         </Tabs>
-        {!sales.orders.length ? (
+        {!remoteSales.orders.length ? (
           <div className="mt-4 rounded-xl border border-dashed p-12 text-center text-sm text-muted-foreground">
             لا توجد بيانات كافية لهذا التقرير.
           </div>
