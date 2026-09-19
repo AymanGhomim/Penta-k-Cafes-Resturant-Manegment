@@ -7,13 +7,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import {
   DEFAULT_PLANS,
   FEATURE_GROUPS,
-  getPlans,
-  savePlans,
 } from "@/config/plans.config";
 import type { FeatureKey, Plan } from "@/types/platform.types";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { tenantService } from "@/services/tenant.service";
-import { normalizePlanCode } from "@/config/plans.config";
+import { platformPlansApiService } from "@/services/platform-plans-api.service";
 import { toast } from "sonner";
 
 const emptyPlan: Plan = {
@@ -32,57 +29,32 @@ export default function PlatformPlansPage() {
   const [selected, setSelected] = useState("");
   const [editing, setEditing] = useState<Plan | null>(null);
   const [removeId, setRemoveId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
-    const next = getPlans();
-    setPlans(next);
-    setSelected(next[0]?.code || "");
+    void platformPlansApiService.list().then((next) => {
+      setPlans(next);
+      setSelected(next[0]?.code || "");
+    }).catch((error: { message?: string }) => toast.error(error.message || "تعذر تحميل الباقات")).finally(() => setLoading(false));
   }, []);
-  const persist = (next: Plan[]) => {
-    setPlans(next);
-    savePlans(next);
-  };
-  const save = () => {
+  const save = async () => {
     if (!editing?.name.trim() || !editing.code.trim()) return toast.error("اسم الباقة والكود مطلوبان.");
     if (Number(editing.price ?? 0) < 0 || !Number.isFinite(Number(editing.price ?? 0))) return toast.error("سعر الباقة لا يمكن أن يكون سالبًا.");
     if (!Number.isInteger(editing.maxBranches) || editing.maxBranches < 1) return toast.error("الحد الأقصى للفروع يجب أن يكون رقمًا صحيحًا أكبر من صفر.");
     if (plans.some((item) => item.id !== editing.id && item.code === editing.code)) return toast.error("كود الباقة مستخدم بالفعل.");
-    const previous = plans.find((item) => item.id === editing.id);
-    if (
-      previous &&
-      previous.code !== editing.code &&
-      tenantService
-        .listTenants()
-        .some((tenant) => normalizePlanCode(tenant.plan) === previous.code)
-    ) {
-      toast.error("لا يمكن تغيير كود باقة مستخدمة بواسطة كافيه حالي.");
-      return;
-    }
-    const next = plans.some((item) => item.id === editing.id)
-      ? plans.map((item) => (item.id === editing.id ? editing : item))
-      : [...plans, { ...editing, id: `plan-${Date.now()}` }];
-    persist(next);
-    setSelected(editing.code);
-    setEditing(null);
-    toast.success("تم حفظ التغييرات بنجاح");
+    try {
+      const saved = plans.some((item) => item.id === editing.id)
+        ? await platformPlansApiService.update(editing.id, editing)
+        : await platformPlansApiService.create(editing);
+      setPlans((current) => current.some((item) => item.id === saved.id) ? current.map((item) => item.id === saved.id ? saved : item) : [...current, saved]);
+      setSelected(saved.code);
+      setEditing(null);
+      toast.success("تم حفظ الباقة في قاعدة البيانات");
+    } catch (error) { toast.error((error as { message?: string }).message || "تعذر حفظ الباقة"); }
   };
-  const remove = (id: string) => {
+  const remove = async (id: string) => {
     const plan = plans.find((item) => item.id === id);
     if (!plan) return;
-    if (
-      tenantService
-        .listTenants()
-        .some((tenant) => normalizePlanCode(tenant.plan) === plan.code)
-    ) {
-      toast.error(
-        "لا يمكن حذف باقة مرتبطة بكافيه حالي. غيّر باقة الكافيه أولًا.",
-      );
-      setRemoveId(null);
-      return;
-    }
-    const next = plans.filter((item) => item.id !== id);
-    persist(next);
-    setSelected(next[0]?.code || "");
-    setRemoveId(null);
+    try { await platformPlansApiService.remove(id); const next = plans.filter((item) => item.id !== id); setPlans(next); setSelected(next[0]?.code || ""); setRemoveId(null); toast.success("تم حذف الباقة"); } catch (error) { toast.error((error as { message?: string }).message || "تعذر حذف الباقة"); setRemoveId(null); }
   };
   const activePlan = plans.find((item) => item.code === selected) || plans[0];
   const toggleFeature = (key: FeatureKey) =>
@@ -114,7 +86,7 @@ export default function PlatformPlansPage() {
           إضافة باقة
         </Button>
       </div>
-      <div className="mt-8 grid gap-4 md:grid-cols-3">
+      {loading ? <div className="mt-8 h-40 animate-pulse rounded-2xl bg-slate-100" /> : <div className="mt-8 grid gap-4 md:grid-cols-3">
         {plans.map((item) => (
           <div
             key={item.id}
@@ -164,7 +136,7 @@ export default function PlatformPlansPage() {
             </div>
           </div>
         ))}
-      </div>
+      </div>}
       {activePlan ? (
         <Card className="mt-6">
           <CardContent className="p-6">

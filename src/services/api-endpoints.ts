@@ -5,7 +5,7 @@ export const API_ENDPOINTS = {
     refresh: "/auth/refresh",
     me: "/auth/me",
   },
-  platform: { tenants: "/platform/tenants", dashboard: "/platform/dashboard" },
+  platform: { tenants: "/platform/tenants", dashboard: "/platform/dashboard", plans: "/platform/plans" },
   cafe: {
     branches: "/cafe/branches",
     categories: "/cafe/categories",
