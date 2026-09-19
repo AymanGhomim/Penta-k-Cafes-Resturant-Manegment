@@ -21,7 +21,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatMoney } from "@/lib/money";
 import { useTenant } from "@/providers/tenant-provider";
 import { customerLoyaltyApiService, type RemoteCustomer } from "@/services/customer-loyalty-api.service";
-import { financeService } from "@/services/finance.service";
+import { paymentApiService } from "@/services/payment-api.service";
+import type { PaymentRecord } from "@/types/cafe-operations.types";
 const blank = {
   label: "",
   address: "",
@@ -33,6 +34,7 @@ export default function CustomerDetailsPage() {
   const params = useParams<{ customerId: string }>();
   const { tenant } = useTenant();
   const [customer, setCustomer] = useState<RemoteCustomer>();
+  const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(blank);
   const [removeId, setRemoveId] = useState<string | null>(null);
@@ -45,6 +47,7 @@ export default function CustomerDetailsPage() {
     window.addEventListener("operations:changed", reload);
     return () => window.removeEventListener("operations:changed", reload);
   }, [reload]);
+  useEffect(() => { void paymentApiService.list().then(setPayments).catch(() => setPayments([])); }, []);
   if (!customer)
     return (
       <AdminShell>
@@ -57,9 +60,7 @@ export default function CustomerDetailsPage() {
       </AdminShell>
     );
   const analytics = customer.analytics;
-  const payments = financeService
-    .getPayments()
-    .filter((p) => analytics.orders.some((o) => o.id === p.orderId));
+  const customerPayments = payments.filter((p) => analytics.orders.some((o) => o.id === p.orderId));
   async function saveAddress() {
     try {
       const address = { ...form, id: `address-${Date.now()}` };
@@ -198,7 +199,7 @@ export default function CustomerDetailsPage() {
           </TabsContent>
           <TabsContent value="payments">
             <Rows
-              rows={payments.map((p) => [
+              rows={customerPayments.map((p) => [
                 p.transactionNumber ?? p.id,
                 p.method,
                 formatMoney(p.amount, tenant.settings.currencySymbol),

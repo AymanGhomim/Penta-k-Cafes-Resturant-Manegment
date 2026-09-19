@@ -4,16 +4,16 @@ import { AdminShell } from "@/components/admin/admin-shell";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatMoney } from "@/lib/money";
 import { useTenant } from "@/providers/tenant-provider";
-import { financeService } from "@/services/finance.service";
-import type { RefundRecord } from "@/types/cafe-operations.types";
+import { paymentApiService } from "@/services/payment-api.service";
+import type { PaymentRecord } from "@/types/cafe-operations.types";
 import { Pagination } from "@/components/shared/pagination";
 import { EmptyState } from "@/components/shared/empty-state";
 import { usePagination } from "@/hooks/use-pagination";
 import { formatDateTime } from "@/lib/formatters";
 export default function RefundsPage() {
   const { tenant } = useTenant();
-  const [records, setRecords] = useState<RefundRecord[]>([]);
-  const reload = () => setRecords(financeService.getRefunds());
+  const [records, setRecords] = useState<PaymentRecord[]>([]);
+  const reload = () => { void paymentApiService.list().then((items) => setRecords(items.filter((item) => (item.refundAmount ?? 0) > 0))).catch(() => setRecords([])); };
   useEffect(() => {
     reload();
     window.addEventListener("operations:changed", reload);
@@ -56,24 +56,22 @@ export default function RefundsPage() {
                 {pagination.items.map((record) => (
                   <tr key={record.id} className="border-t">
                     <td className="px-4 py-3">
-                      {financeService.getPaymentDetails(record.paymentId)?.order
-                        ?.orderNumber ?? record.orderId}
+                      {record.orderNumber ?? record.orderId}
                     </td>
                     <td className="px-4 py-3">
-                      {financeService.getPaymentDetails(record.paymentId)
-                        ?.payment.transactionNumber ?? record.paymentId}
+                      {record.transactionNumber ?? record.id}
                     </td>
                     <td className="px-4 py-3">
-                      {record.type === "FULL" ? "كامل" : "جزئي"}
+                      {(record.refundAmount ?? 0) >= record.amount ? "كامل" : "جزئي"}
                     </td>
                     <td className="px-4 py-3 font-bold">
                       {formatMoney(
-                        record.amount,
+                        record.refundAmount ?? 0,
                         tenant.settings.currencySymbol,
                       )}
                     </td>
-                    <td className="px-4 py-3">{record.reason}</td>
-                    <td className="px-4 py-3">{record.employeeId ?? "—"}</td>
+                    <td className="px-4 py-3">استرجاع مسجل من عملية الدفع</td>
+                    <td className="px-4 py-3">—</td>
                     <td className="px-4 py-3">
                       {formatDateTime(record.createdAt)}
                     </td>

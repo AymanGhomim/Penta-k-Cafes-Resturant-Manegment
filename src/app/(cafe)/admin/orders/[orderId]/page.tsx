@@ -28,13 +28,14 @@ import { Input } from "@/components/ui/input";
 import { normalizeTenantBranding } from "@/lib/tenant-branding";
 import { useBranch } from "@/providers/branch-provider";
 import { useTenant } from "@/providers/tenant-provider";
-import { financeService } from "@/services/finance.service";
 import {
   canTransitionOrderStatus,
 } from "@/services/order.service";
 import { orderApiService } from "@/services/order-api.service";
+import { paymentApiService } from "@/services/payment-api.service";
 import { branchService } from "@/services/branch.service";
 import type { Order, OrderStatus } from "@/types/order.types";
+import type { PaymentRecord } from "@/types/cafe-operations.types";
 import { orderStatusPresentation } from "@shared/presentation/order";
 import { buildOrderReceiptData } from "@shared/presentation/order-receipt";
 
@@ -50,6 +51,7 @@ export default function OrderDetailsPage() {
   const { tenant } = useTenant();
   const { branch } = useBranch();
   const [order, setOrder] = useState<Order>();
+  const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [reason, setReason] = useState("");
@@ -59,6 +61,7 @@ export default function OrderDetailsPage() {
     window.addEventListener("orders:changed", reload);
     return () => window.removeEventListener("orders:changed", reload);
   }, [reload]);
+  useEffect(() => { void paymentApiService.list().then((items) => setPayments(items.filter((item) => item.orderId === params.orderId))).catch(() => setPayments([])); }, [params.orderId]);
   if (!order)
     return (
       <AdminShell>
@@ -71,14 +74,8 @@ export default function OrderDetailsPage() {
       </AdminShell>
     );
   const branding = normalizeTenantBranding(tenant.branding);
-  const payments = financeService
-    .getPayments()
-    .filter((payment) => payment.orderId === order.id);
-  const refunds = financeService
-    .getRefunds()
-    .filter((refund) => refund.orderId === order.id);
   const paid = payments.reduce((sum, payment) => sum + payment.amount, 0);
-  const refunded = refunds.reduce((sum, refund) => sum + refund.amount, 0);
+  const refunded = payments.reduce((sum, payment) => sum + (payment.refundAmount ?? 0), 0);
   const cashPayment = payments.find(
     (payment) => payment.receivedAmount !== undefined || payment.changeAmount !== undefined,
   );
@@ -89,7 +86,7 @@ export default function OrderDetailsPage() {
     branding,
     payment: {
       paidAmount: payments.length ? paid : undefined,
-      refundedAmount: refunds.length ? refunded : undefined,
+      refundedAmount: refunded ? refunded : undefined,
       cashReceived: cashPayment?.receivedAmount,
       changeAmount: cashPayment?.changeAmount,
     },
