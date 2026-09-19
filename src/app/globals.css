@@ -333,6 +333,23 @@
   color: var(--tenant-primary-foreground);
 }
 
+/* The platform console is intentionally light, even when the global app theme
+ * defaults to dark for cafe workspaces. Keep native form controls readable. */
+.platform-theme {
+  color-scheme: light;
+}
+
+.platform-theme :is(input, select, textarea) {
+  background-color: #fff;
+  color: #111827;
+  border-color: #d1d5db;
+}
+
+.platform-theme :is(input, select, textarea)::placeholder {
+  color: #667085;
+  opacity: 1;
+}
+
 @layer base {
   * {
     @apply border-border;

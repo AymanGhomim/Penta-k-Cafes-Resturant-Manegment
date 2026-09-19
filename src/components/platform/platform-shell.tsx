@@ -174,7 +174,7 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
     <div
       dir="rtl"
       lang="ar"
-      className="min-h-screen bg-[#F5F5F5] text-[#111111]"
+      className="platform-theme min-h-screen bg-[#F5F5F5] text-[#111111]"
       style={
         {
           "--background": "0 0% 97%",
