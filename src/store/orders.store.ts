@@ -35,13 +35,15 @@ interface OrdersState {
 export const useOrdersStore = create<OrdersState>((set, get) => ({
   orders: [],
   tenantId: "",
-  loadForTenant: (tenantId = cafeDataService.tenantId()) => {
+  loadForTenant: (tenantId = "") => {
+    if (!tenantId) return;
     const branchId = branchService.getActiveBranchId(tenantId) ?? undefined;
     void orderApiService.list(branchId).then((orders) => set({ tenantId, orders })).catch(() => set({ tenantId, orders: [] }));
   },
-  setOrders: (orders, tenantId = cafeDataService.tenantId()) => set({ tenantId, orders }),
+  setOrders: (orders, tenantId = "") => set({ tenantId, orders }),
   addOrder: (input) => {
-    const tenantId = cafeDataService.tenantId();
+    const tenantId = get().tenantId;
+    if (!tenantId) throw new Error("لم يتم تحديد الكافيه الحالي.");
     const branchId = branchService.getActiveBranchId(tenantId) ?? undefined;
     const order: Order = {
       id: `${tenantId}-ord-${Date.now()}`,

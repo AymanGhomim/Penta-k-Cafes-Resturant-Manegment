@@ -1,7 +1,6 @@
 "use client";
 
 import { create } from "zustand";
-import { cafeDataService } from "@/services/cafe-data.service";
 import type { CartItem } from "@/types/cart.types";
 
 interface CartState {
@@ -27,11 +26,11 @@ const keyFor = (item: CartItem) =>
 const matches = (item: CartItem, key: string) =>
   keyFor(item) === key || (!item.cartId && item.productId === key);
 export const useCartStore = create<CartState>((set, get) => ({
-  tenantId: cafeDataService.tenantId(),
+  tenantId: "",
   items: [],
   addItem: (item) =>
     set((state) => {
-      const tenantId = cafeDataService.tenantId();
+      const tenantId = item.tenantId ?? state.tenantId;
       const cartId = keyFor(item);
       const scoped = { ...item, tenantId, cartId };
       const existing =
@@ -77,7 +76,7 @@ export const useCartStore = create<CartState>((set, get) => ({
         matches(item, key) ? { ...item, notes } : item,
       ),
     })),
-  clearCart: () => set({ tenantId: cafeDataService.tenantId(), items: [] }),
+  clearCart: () => set({ tenantId: "", items: [] }),
   getTotalItems: () =>
     get().items.reduce((sum, item) => sum + item.quantity, 0),
   getSubtotal: () =>
