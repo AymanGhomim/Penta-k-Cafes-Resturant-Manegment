@@ -28,6 +28,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuthStore } from "@/store/auth.store";
+import { authSessionService } from "@/services/auth-session.service";
 
 const groups = [
   {
@@ -72,21 +73,44 @@ export function PlatformShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
+  const login = useAuthStore((state) => state.login);
   const logout = useAuthStore((state) => state.logout);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
-    if (!user || user.role !== "platform_super_admin") {
-      router.replace("/platform/login");
+    if (pathname === "/platform/login") {
+      setAuthReady(true);
+      return;
     }
-  }, [router, user]);
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        await Promise.resolve(useAuthStore.persist.rehydrate());
+        const current = await authSessionService.me();
+        if (current.role !== "PLATFORM_OWNER") throw new Error("Invalid platform role");
+        if (!cancelled) {
+          login({ id: current.id, name: current.name, email: current.email, role: "platform_super_admin", tenantId: current.tenantId ?? undefined });
+        }
+      } catch {
+        authSessionService.clear();
+        logout();
+        if (!cancelled) router.replace("/platform/login");
+      } finally {
+        if (!cancelled) setAuthReady(true);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [login, logout, pathname, router]);
 
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
 
   if (pathname === "/platform/login") return <>{children}</>;
-  if (!user || user.role !== "platform_super_admin") {
+  if (!authReady || !user || user.role !== "platform_super_admin") {
     return <main className="min-h-screen bg-[#F5F5F5]" />;
   }
 
