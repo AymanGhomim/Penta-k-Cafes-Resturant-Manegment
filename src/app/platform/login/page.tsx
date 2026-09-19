@@ -10,12 +10,10 @@ import { PLATFORM_CONFIG } from "@/config/platform.config";
 import { useAuthStore } from "@/store/auth.store";
 import { platformAuthService } from "@/services/platform-auth.service";
 
-const DEFAULT_PLATFORM_EMAIL = "owner@penta-k.com";
-
 export default function PlatformLoginPage() {
   const router = useRouter();
   const login = useAuthStore((state) => state.login);
-  const [email, setEmail] = useState(DEFAULT_PLATFORM_EMAIL);
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
