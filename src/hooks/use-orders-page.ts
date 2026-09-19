@@ -3,9 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { usePagination } from "@/hooks/use-pagination";
-import { orderService } from "@/services/order.service";
 import { orderApiService } from "@/services/order-api.service";
-import { reportService } from "@/services/report.service";
+import { toCsv } from "@/lib/csv";
 import { useOrdersStore } from "@/store/orders.store";
 import type { Order, OrderStatus } from "@/types/order.types";
 
@@ -99,9 +98,7 @@ export function useOrdersPage() {
     try {
       await orderApiService.updateStatus(order.id, sequence[index + 1]);
       useOrdersStore.getState().loadForTenant();
-    } catch (error) {
-      try { orderService.transition(order.id, sequence[index + 1]); } catch (fallbackError) { toast.error(fallbackError instanceof Error ? fallbackError.message : error instanceof Error ? error.message : "تعذر تحديث الحالة."); }
-    }
+    } catch (error) { toast.error(error instanceof Error ? error.message : "تعذر تحديث الحالة."); }
   }
 
   function openCancellation(order: Order) {
@@ -113,9 +110,7 @@ export function useOrdersPage() {
     if (!cancelTarget) return;
     try {
       await orderApiService.updateStatus(cancelTarget.id, "CANCELLED");
-    } catch {
-      orderService.cancel(cancelTarget.id, cancelReason);
-    }
+    } catch (error) { toast.error(error instanceof Error ? error.message : "تعذر إلغاء الطلب."); return; }
     setCancelTarget(null);
     setCancelReason("");
     setCancelConfirmOpen(false);
@@ -131,7 +126,7 @@ export function useOrdersPage() {
 
   function exportOrders() {
     try {
-      const csv = reportService.toCsv(
+      const csv = toCsv(
         filteredOrders.map((order) => ({
           رقم_الطلب: order.orderNumber,
           التاريخ: order.createdAt,

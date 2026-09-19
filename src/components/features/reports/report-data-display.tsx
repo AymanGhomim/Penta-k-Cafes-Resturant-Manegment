@@ -1,5 +1,4 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { reportService, type ReportFilters } from "@/services/report.service";
 
 export function ReportMetricGrid({ values }: { values: string[][] }) {
   return (
@@ -55,26 +54,5 @@ export function ReportTable({
         ) : null}
       </CardContent>
     </Card>
-  );
-}
-
-export function EmployeeReport({ filters }: { filters: ReportFilters }) {
-  const orders = reportService.getOrders(filters);
-  const names = Array.from(
-    new Set(orders.map((order) => order.createdBy).filter(Boolean)),
-  ) as string[];
-  return (
-    <ReportTable
-      headers={["الموظف", "الطلبات", "المبيعات", "الإلغاءات"]}
-      rows={names.map((name) => {
-        const rows = orders.filter((order) => order.createdBy === name);
-        return [
-          name,
-          String(rows.length),
-          String(rows.reduce((sum, order) => sum + order.total, 0)),
-          String(rows.filter((order) => order.status === "CANCELLED").length),
-        ];
-      })}
-    />
   );
 }

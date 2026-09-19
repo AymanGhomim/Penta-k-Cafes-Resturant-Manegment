@@ -6,7 +6,7 @@ import { usePagination } from "@/hooks/use-pagination";
 import { useCurrentEmployee } from "@/providers/current-employee-provider";
 import { useTenant } from "@/providers/tenant-provider";
 import { branchService } from "@/services/branch.service";
-import { customerService } from "@/services/customer.service";
+import { customerLoyaltyApiService } from "@/services/customer-loyalty-api.service";
 import { employeeApiService } from "@/services/employee-api.service";
 import { paymentApiService } from "@/services/payment-api.service";
 import type { PaymentRecord } from "@/types/cafe-operations.types";
@@ -71,11 +71,12 @@ export function usePaymentsPage() {
   const [employeeRows, setEmployeeRows] = useState<Awaited<ReturnType<typeof employeeApiService.list>>>([]);
   useEffect(() => { void employeeApiService.list().then(setEmployeeRows).catch(() => setEmployeeRows([])); }, []);
   const employees = new Map(employeeRows.map((employee) => [employee.id, employee.name]));
-  const customers = new Map(
-    customerService
-      .getCustomers()
-      .map((customer) => [customer.id, customer.name]),
-  );
+  const [customers, setCustomers] = useState(new Map<string, string>());
+  useEffect(() => {
+    void customerLoyaltyApiService.listCustomers()
+      .then((items) => setCustomers(new Map(items.map((customer) => [customer.id, customer.name]))))
+      .catch(() => setCustomers(new Map()));
+  }, []);
   const filteredPayments = payments.filter((payment) => {
     const order = orders.get(payment.id);
     const haystack =

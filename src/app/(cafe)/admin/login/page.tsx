@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Eye,
   EyeOff,
+  Loader2,
   LockKeyhole,
   LogIn,
   Mail,
@@ -197,7 +198,7 @@ export default function AdminLoginPage() {
                 disabled={!isReady || isSubmitting}
                 className="h-[50px] w-full rounded-lg text-sm font-semibold shadow-md"
               >
-                <LogIn className="ml-3 h-5 w-5" />
+                {isSubmitting ? <Loader2 className="ml-3 h-5 w-5 animate-spin" /> : <LogIn className="ml-3 h-5 w-5" />}
                 {isSubmitting ? "جارٍ تسجيل الدخول..." : "تسجيل الدخول"}
               </Button>
 

@@ -1,9 +1,7 @@
 import { getPlanByCode } from "@/config/plans.config";
 import { branchRepository } from "@/repositories/branch.repository";
-import { tenantDataRepository } from "@/repositories/tenant-data.repository";
 import { tenantService } from "@/services/tenant.service";
 import type { Branch, Menu, MenuItem } from "@/types/branch.types";
-import type { Product } from "@/types/product.types";
 import type { Tenant } from "@/types/tenant.types";
 
 const makeId = (prefix: string) =>
@@ -185,27 +183,5 @@ export const branchService = {
   assignMenuToBranch(branchId: string, menuId: string, id = tenantId()) {
     if (!this.getMenu(menuId, id)) throw new Error("المنيو غير موجودة");
     return this.updateBranch(branchId, { menuId }, id);
-  },
-  getBranchProducts(
-    branchId = branchService.getActiveBranchId() || "",
-    id = tenantId(),
-  ): Product[] {
-    const branch = this.getBranch(branchId, id);
-    if (!branch?.menuId) return [];
-    const products = tenantDataRepository.getProducts(id);
-    const byId = new Map(products.map((product) => [product.id, product]));
-    return this.getMenuItems(branch.menuId, id)
-      .filter((item) => item.available)
-      .map((item) => {
-        const product = byId.get(item.productId);
-        return product
-          ? {
-              ...product,
-              price: item.price > 0 ? item.price : product.price,
-              isAvailable: item.available && product.isAvailable,
-            }
-          : null;
-      })
-      .filter((product): product is Product => Boolean(product));
   },
 };

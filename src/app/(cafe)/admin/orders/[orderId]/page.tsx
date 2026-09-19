@@ -28,9 +28,7 @@ import { Input } from "@/components/ui/input";
 import { normalizeTenantBranding } from "@/lib/tenant-branding";
 import { useBranch } from "@/providers/branch-provider";
 import { useTenant } from "@/providers/tenant-provider";
-import {
-  canTransitionOrderStatus,
-} from "@/services/order.service";
+import { canTransitionOrderStatus } from "@/lib/order-status";
 import { orderApiService } from "@/services/order-api.service";
 import { paymentApiService } from "@/services/payment-api.service";
 import { branchService } from "@/services/branch.service";

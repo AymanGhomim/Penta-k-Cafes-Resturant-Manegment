@@ -1,6 +1,6 @@
 import { API_ENDPOINTS } from "@/services/api-endpoints";
 import { httpClient } from "@/services/http-client";
-import type { ReportFilters } from "@/services/report.service";
+import type { ReportFilters } from "@/types/report.types";
 
 export type RemoteReport = {
   sales: { grossSales: number; discounts: number; refunds: number; netSales: number; taxes: number; serviceCharges: number; deliveryFees: number; orderCount: number; averageOrder: number; orders: any[] };

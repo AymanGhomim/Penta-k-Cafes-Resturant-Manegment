@@ -28,8 +28,8 @@ import { useBranch } from "@/providers/branch-provider";
 import { useCurrentEmployee } from "@/providers/current-employee-provider";
 import { useTenant } from "@/providers/tenant-provider";
 import { branchService } from "@/services/branch.service";
-import { cafeDataService } from "@/services/cafe-data.service";
 import { engagementService } from "@/services/engagement.service";
+import { orderApiService } from "@/services/order-api.service";
 import { useAuthStore } from "@/store/auth.store";
 
 const AdminShellNestingContext = createContext(false);
@@ -139,9 +139,7 @@ function AdminShellContent({ children }: { children: React.ReactNode }) {
   }, [employee, tenant.id]);
   useEffect(() => {
     const updateBadges = () => {
-      const orders = branch
-        ? cafeDataService.getOrdersForBranch(branch.id, tenant.id)
-        : [];
+      void (branch ? orderApiService.list(branch.id) : Promise.resolve([])).then((orders) => {
       setBadgeCounts({
         "/admin/orders": orders.filter((item) => item.status === "NEW").length,
         "/kitchen/orders": orders.filter((item) =>
@@ -153,6 +151,7 @@ function AdminShellContent({ children }: { children: React.ReactNode }) {
         "/admin/notifications": engagementService
           .getNotifications()
           .filter((item) => !item.read).length,
+      });
       });
     };
     updateBadges();

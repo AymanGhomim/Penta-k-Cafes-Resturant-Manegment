@@ -11,7 +11,7 @@ import {
 } from "@/components/features/products/product-model";
 import { usePagination } from "@/hooks/use-pagination";
 import { catalogApiService } from "@/services/catalog-api.service";
-import { reportService } from "@/services/report.service";
+import { toCsv } from "@/lib/csv";
 import type { Category } from "@/types/category.types";
 
 const emptyForm: ProductFormDraft = {
@@ -143,7 +143,7 @@ export function useProductsPage() {
 
   function exportProducts() {
     try {
-      const csv = reportService.toCsv(
+      const csv = toCsv(
         products.map((product) => ({
           "اسم المنتج": productNames[product.id] ?? product.name,
           القسم:

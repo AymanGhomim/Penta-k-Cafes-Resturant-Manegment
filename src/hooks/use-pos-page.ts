@@ -130,9 +130,9 @@ export function usePosPage() {
     }
   }
 
-  function quickCustomer() {
+  async function quickCustomer() {
     try {
-      const customer = checkoutService.createQuickCustomer({
+      const customer = await checkoutService.createQuickCustomer({
         name: customerName,
         phone: customerPhone,
         address: customerAddress,

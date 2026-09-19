@@ -2,7 +2,7 @@
 
 import { type FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Eye, EyeOff, LockKeyhole, Mail, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Loader2, LockKeyhole, Mail, ShieldCheck, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PlatformLogo } from "@/components/platform/platform-logo";
@@ -19,10 +19,13 @@ export default function PlatformLoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (isSubmitting) return;
     setError("");
+    setIsSubmitting(true);
     try {
       const result = await platformAuthService.login(email.trim(), password);
       login({
@@ -36,6 +39,7 @@ export default function PlatformLoginPage() {
     } catch (requestError) {
       const error = requestError as { message?: string };
       setError(error.message || "بيانات الدخول غير صحيحة.");
+      setIsSubmitting(false);
     }
   };
 
@@ -52,7 +56,7 @@ export default function PlatformLoginPage() {
             <label className="block text-sm font-bold text-[#344054]">البريد الإلكتروني<div className="relative mt-2"><Mail className="pointer-events-none absolute right-3 top-3.5 h-4 w-4 text-[#374151]" /><Input dir="ltr" autoComplete="username" className="h-12 bg-[#FAFAFA] pr-10" value={email} onChange={(event) => setEmail(event.target.value)} /></div></label>
             <label className="block text-sm font-bold text-[#344054]">كلمة المرور<div className="relative mt-2"><LockKeyhole className="pointer-events-none absolute right-3 top-3.5 h-4 w-4 text-[#374151]" /><Input dir="ltr" autoComplete="current-password" className="h-12 bg-[#FAFAFA] pl-10 pr-10" type={showPassword ? "text" : "password"} value={password} onChange={(event) => setPassword(event.target.value)} /><button type="button" onClick={() => setShowPassword((value) => !value)} className="absolute left-3 top-3.5 text-[#6B7280]" aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}>{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div></label>
             {error ? <p className="rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-600">{error}</p> : null}
-            <Button className="h-12 w-full gap-2 bg-[#374151] text-white hover:bg-[#111827]" type="submit">تسجيل الدخول <ArrowLeft className="h-4 w-4" /></Button>
+            <Button disabled={isSubmitting} className="h-12 w-full gap-2 bg-[#374151] text-white hover:bg-[#111827] disabled:cursor-not-allowed disabled:opacity-70" type="submit">{isSubmitting ? <><Loader2 className="h-4 w-4 animate-spin" />جارٍ تسجيل الدخول...</> : <>تسجيل الدخول <ArrowLeft className="h-4 w-4" /></>}</Button>
           </form>
           <p className="mt-8 text-center text-xs text-[#98A2B3]">{PLATFORM_CONFIG.name} · {PLATFORM_CONFIG.tagline}</p>
         </div></section>

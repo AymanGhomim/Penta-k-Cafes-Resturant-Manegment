@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatMoney } from "@/lib/money";
 import { useBranch } from "@/providers/branch-provider";
 import { useTenant } from "@/providers/tenant-provider";
-import type { ReportFilters } from "@/services/report.service";
+import type { ReportFilters } from "@/types/report.types";
 import { reportApiService, type RemoteReport } from "@/services/report-api.service";
 import type {
   OrderSource,
