@@ -2,7 +2,7 @@ import { httpClient } from "@/services/http-client";
 import { branchService } from "@/services/branch.service";
 import type { OperationRecord } from "@/types/cafe-operations.types";
 
-type Kind = "inventory" | "purchases" | "recipes" | "waste" | "stockMovements" | "stockCounts" | "deliveryZones" | "shifts" | "suppliers" | "roles" | "notifications" | "waiterRequests";
+type Kind = "inventory" | "purchases" | "recipes" | "waste" | "stockMovements" | "stockCounts" | "deliveryZones" | "shifts" | "suppliers" | "roles" | "notifications" | "waiterRequests" | "auditLog";
 type Envelope<T> = { success: boolean; data: T };
 type RecordValue = OperationRecord;
 const branchId = () => branchService.getActiveBranchId() ?? undefined;

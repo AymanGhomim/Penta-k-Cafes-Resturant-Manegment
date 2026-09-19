@@ -7,7 +7,8 @@ export type OperationKind =
   | "roles"
   | "stockCounts"
   | "notifications"
-  | "waiterRequests";
+  | "waiterRequests"
+  | "auditLog";
 
 const branchId = () => branchService.getActiveBranchId() ?? undefined;
 

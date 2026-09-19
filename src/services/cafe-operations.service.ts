@@ -15,6 +15,7 @@ import type {
   WasteRecord,
 } from "@/types/cafe-operations.types";
 import { useAuthStore } from "@/store/auth.store";
+import { operationsApiService } from "@/services/operations-api.service";
 
 const id = (prefix: string) =>
   `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -55,12 +56,11 @@ export const cafeOperationsService = {
         .get(resource)
         .filter((record) => record.id !== recordId),
     ),
-  audit: (entry: Omit<AuditEntry, "id" | "tenantId" | "createdAt">) =>
-    cafeOperationsService.create<AuditEntry>("auditLog", {
-      ...entry,
-      userId: entry.userId ?? useAuthStore.getState().user?.employeeId ?? useAuthStore.getState().user?.id,
-      createdAt: new Date().toISOString(),
-    }),
+  audit: (entry: Omit<AuditEntry, "id" | "tenantId" | "createdAt">) => {
+    const value = { ...entry, userId: entry.userId ?? useAuthStore.getState().user?.employeeId ?? useAuthStore.getState().user?.id, createdAt: new Date().toISOString() };
+    void operationsApiService.create<AuditEntry>("auditLog", value).catch(() => undefined);
+    return cafeOperationsService.create<AuditEntry>("auditLog", value);
+  },
   recordWaste(value: Omit<WasteRecord, "id" | "tenantId" | "createdAt">) {
     const inventory = cafeOperationsRepository.get<InventoryItem>("inventory");
     const item = inventory.find((entry) => entry.id === value.inventoryItemId);

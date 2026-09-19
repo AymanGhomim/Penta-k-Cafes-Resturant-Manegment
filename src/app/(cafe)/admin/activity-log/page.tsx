@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { cafeOperationsService } from "@/services/cafe-operations.service";
+import { operationsApiService } from "@/services/operations-api.service";
 import type { AuditEntry } from "@/types/cafe-operations.types";
 import { Pagination } from "@/components/shared/pagination";
 import { SearchInput } from "@/components/shared/search-input";
@@ -17,8 +17,7 @@ export default function ActivityLogPage() {
   const [employee, setEmployee] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const reload = () =>
-    setRecords(cafeOperationsService.get<AuditEntry>("auditLog"));
+  const reload = () => { void operationsApiService.list<AuditEntry>("auditLog").then(setRecords).catch(() => setRecords([])); };
   useEffect(() => {
     reload();
     window.addEventListener("operations:changed", reload);
