@@ -9,6 +9,7 @@ import { useOrdersStore } from "@/store/orders.store";
 import { useSettingsStore } from "@/store/settings.store";
 import { useCustomerRoute } from "@/providers/customer-route-provider";
 import { platformTenantsApiService } from "@/services/platform-tenants-api.service";
+import { cafeTenantApiService } from "@/services/cafe-tenant-api.service";
 
 type TenantContextValue = {
   tenant: Tenant;
@@ -26,6 +27,7 @@ async function resolveTenant(): Promise<{ tenant: Tenant; error?: string }> {
     ? await platformTenantsApiService.find(requestedTenantId).catch(() => undefined)
     : undefined;
   if (requestedTenant) {
+    tenantService.setRemoteActiveTenant(requestedTenant);
     return { tenant: requestedTenant };
   }
   if (requestedTenantId)
@@ -41,6 +43,8 @@ async function resolveTenant(): Promise<{ tenant: Tenant; error?: string }> {
       tenant: DEFAULT_TENANT,
       error: "تعذر تحديد الكافيه الحالي. اختر كافيهًا صالحًا من المنصة.",
     };
+  const remoteTenant = await cafeTenantApiService.get().catch(() => undefined);
+  if (remoteTenant) { tenantService.setRemoteActiveTenant(remoteTenant); return { tenant: remoteTenant }; }
   const hostname = window.location.hostname.toLowerCase();
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN?.toLowerCase();
   const configuredSlug =
@@ -53,9 +57,9 @@ async function resolveTenant(): Promise<{ tenant: Tenant; error?: string }> {
     subdomain && subdomain !== "www" && subdomain !== "platform"
       ? subdomain
       : configuredSlug;
-  const resolved = tenantService
-    .listTenants()
-    .find((tenant) => tenant.slug === requestedSlug);
+  const resolved = process.env.NODE_ENV === "production"
+    ? undefined
+    : tenantService.listTenants().find((tenant) => tenant.slug === requestedSlug);
   return resolved
     ? { tenant: resolved }
     : {

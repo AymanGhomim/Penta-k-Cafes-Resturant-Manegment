@@ -5,8 +5,10 @@ import type { Tenant } from "@/types/tenant.types";
 // Frontend-only local demo bootstrap. Normal navigation must use a selected,
 // existing tenant; invalid saved IDs are rejected instead of leaking demo data.
 const DEVELOPMENT_BOOTSTRAP_TENANT_ID = "tenant-golden-drip";
+let remoteActiveTenantId: string | undefined;
 
 function requireActiveTenantId() {
+  if (remoteActiveTenantId) return remoteActiveTenantId;
   const id =
     mockTenantRepository.getSelected() || DEVELOPMENT_BOOTSTRAP_TENANT_ID;
   if (!mockTenantRepository.get(id))
@@ -15,6 +17,7 @@ function requireActiveTenantId() {
 }
 
 export const tenantService = {
+  setRemoteActiveTenant: (tenant: Tenant) => { remoteActiveTenantId = tenant.id; },
   listTenants: () => mockTenantRepository.list(),
   getTenant: (id: string) => mockTenantRepository.get(id),
   createTenant: (tenant: Tenant) => mockTenantRepository.create(tenant),

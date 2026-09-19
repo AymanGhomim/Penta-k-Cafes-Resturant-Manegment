@@ -17,6 +17,7 @@ export type CafeSettings = { workingHours: string; taxRate: number; serviceCharg
 export type TenantDataset = { products: Product[]; categories: Category[]; orders: Order[]; tables: Table[]; offers: Offer[]; settings: CafeSettings };
 const defaults: CafeSettings = { workingHours: "09:00 - 23:00", taxRate: 0, serviceCharge: 0, onlineOrdering: true, takeaway: true, delivery: true, paymentMethods: ["CASH", "CARD"], receiptHeader: "", receiptFooter: "شكرًا لزيارتكم", kitchenSound: true };
 function seed(tenantId: string): TenantDataset {
+  if (process.env.NODE_ENV === "production") return { products: [], categories: [], orders: [], tables: [], offers: [], settings: { ...defaults } };
   return {
     products: forTenant(developmentProducts, tenantId),
     categories: forTenant(developmentCategories, tenantId),
@@ -28,6 +29,7 @@ function seed(tenantId: string): TenantDataset {
 }
 
 function resource<T>(tenantId: string, name: keyof TenantDataset, initial: T): T {
+  if (process.env.NODE_ENV === "production") return initial;
   const stored = tenantStorage.get(tenantId, name, initial);
   if (
     tenantId === "tenant-golden-drip" &&

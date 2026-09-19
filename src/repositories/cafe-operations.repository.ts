@@ -45,6 +45,7 @@ const seed = (
   resource: OperationResource,
   tenantId: string,
 ): OperationRecord[] => {
+  if (process.env.NODE_ENV === "production") return [];
   return cloneDevelopmentFixture(developmentOperations[tenantId]?.[resource] ?? []);
 };
 export const cafeOperationsRepository = {
@@ -53,6 +54,7 @@ export const cafeOperationsRepository = {
     resource: OperationResource,
     tenantId = activeTenant(),
   ): T[] {
+    if (process.env.NODE_ENV === "production") return [];
     const branchId = branchService.getActiveBranchId(tenantId);
     if (tenantLevel.has(resource))
       return tenantStorage.get<T[]>(

@@ -8,7 +8,7 @@ const STORAGE_KEY = "platform:tenants:v1";
 const SELECTED_KEY = "platform:selected-tenant:v1";
 const GOLDEN_CONTACT_MIGRATION_KEY = "migration:golden-contact:kafr-v1";
 const ADMIN_CLIENT_MODE_MIGRATION_KEY = "migration:admin-client-mode:v1";
-let memoryTenants = [...DEMO_TENANTS];
+let memoryTenants = process.env.NODE_ENV === "production" ? [] : [...DEMO_TENANTS];
 
 function read() {
   if (typeof window === "undefined") return memoryTenants;

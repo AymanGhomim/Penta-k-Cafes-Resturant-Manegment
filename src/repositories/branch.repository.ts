@@ -7,11 +7,13 @@ import {
   forTenant,
 } from "@shared/development-data";
 
-const branchSeeds = (tenantId: string): Branch[] => forTenant(developmentBranches, tenantId);
-const menuSeeds = (tenantId: string): Menu[] => forTenant(developmentMenus, tenantId);
-const itemSeeds = (tenantId: string): MenuItem[] => forTenant(developmentMenuItems, tenantId);
+const branchSeeds = (tenantId: string): Branch[] => process.env.NODE_ENV === "production" ? [] : forTenant(developmentBranches, tenantId);
+const menuSeeds = (tenantId: string): Menu[] => process.env.NODE_ENV === "production" ? [] : forTenant(developmentMenus, tenantId);
+const itemSeeds = (tenantId: string): MenuItem[] => process.env.NODE_ENV === "production" ? [] : forTenant(developmentMenuItems, tenantId);
+const remoteBranches = new Map<string, Branch[]>();
 
 function getBranches(tenantId: string) {
+  if (process.env.NODE_ENV === "production") return remoteBranches.get(tenantId) ?? [];
   const stored = tenantStorage.get<Branch[]>(
     tenantId,
     "branches",
@@ -55,15 +57,14 @@ function getBranches(tenantId: string) {
 }
 
 export const branchRepository = {
+  setRemoteBranches: (tenantId: string, branches: Branch[]) => remoteBranches.set(tenantId, branches),
   getBranches,
   saveBranches: (tenantId: string, branches: Branch[]) =>
     tenantStorage.set(tenantId, "branches", branches),
-  getMenus: (tenantId: string) =>
-    tenantStorage.get<Menu[]>(tenantId, "menus", menuSeeds(tenantId)),
+  getMenus: (tenantId: string) => process.env.NODE_ENV === "production" ? [] : tenantStorage.get<Menu[]>(tenantId, "menus", menuSeeds(tenantId)),
   saveMenus: (tenantId: string, menus: Menu[]) =>
     tenantStorage.set(tenantId, "menus", menus),
-  getMenuItems: (tenantId: string) =>
-    tenantStorage.get<MenuItem[]>(tenantId, "menu-items", itemSeeds(tenantId)),
+  getMenuItems: (tenantId: string) => process.env.NODE_ENV === "production" ? [] : tenantStorage.get<MenuItem[]>(tenantId, "menu-items", itemSeeds(tenantId)),
   saveMenuItems: (tenantId: string, items: MenuItem[]) =>
     tenantStorage.set(tenantId, "menu-items", items),
   getActiveBranchId: (tenantId: string) =>

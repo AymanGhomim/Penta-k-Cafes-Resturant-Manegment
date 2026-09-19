@@ -10,6 +10,7 @@ import {
 import { toast } from "sonner";
 import { useTenant } from "@/providers/tenant-provider";
 import { branchService } from "@/services/branch.service";
+import { branchRepository } from "@/repositories/branch.repository";
 import { branchApiService } from "@/services/branch-api.service";
 import { useCartStore } from "@/store/cart.store";
 import { useOrdersStore } from "@/store/orders.store";
@@ -45,6 +46,7 @@ export function BranchProvider({ children }: { children: React.ReactNode }) {
       const next = employee
         ? employeeService.getAccessibleBranches(employee, tenant.id).filter((item) => all.some((remote) => remote.id === item.id))
         : all;
+      branchRepository.setRemoteBranches(tenant.id, next);
       const saved = branchService.getActiveBranchId(tenant.id);
       const requestedBranchId = customerRoute.context?.branch.id;
       const validBranchId = requestedBranchId && next.some((item) => item.id === requestedBranchId)
